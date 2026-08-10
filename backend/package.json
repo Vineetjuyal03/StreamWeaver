@@ -15,5 +15,10 @@
   "bugs": {
     "url": "https://github.com/Vineetjuyal03/StreamWeaver/issues"
   },
-  "homepage": "https://github.com/Vineetjuyal03/StreamWeaver#readme"
+  "homepage": "https://github.com/Vineetjuyal03/StreamWeaver#readme",
+  "dependencies": {
+    "busboy": "^1.6.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
+  }
 }
