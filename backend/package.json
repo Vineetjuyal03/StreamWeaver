@@ -1,23 +1,25 @@
 {
-  "name": "backend",
+  "name": "streamweaver",
   "version": "1.0.0",
-  "description": "",
+  "description": "steamweaver file uploading project",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon server.js",
-    "start": "node server.js"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Vineetjuyal03/StreamWeaver.git"
+  },
   "author": "",
   "license": "ISC",
-  "type": "module",
+  "bugs": {
+    "url": "https://github.com/Vineetjuyal03/StreamWeaver/issues"
+  },
+  "homepage": "https://github.com/Vineetjuyal03/StreamWeaver#readme",
   "dependencies": {
     "busboy": "^1.6.0",
     "cors": "^2.8.6",
     "csv-parser": "^3.2.1",
     "express": "^5.2.1"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.14"
   }
 }
