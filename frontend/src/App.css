@@ -1,9 +1,9 @@
 .app-container {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  max-width: 800px;
+  max-width: 1000px;
   margin: 40px auto;
-  padding: 20px;
-  color: #1f2937;
+  padding: 0 20px;
+  color: #0f172a;
 }
 
 .app-header {
@@ -20,7 +20,7 @@
 
 .app-subtitle {
   font-size: 1rem;
-  color: #6b7280;
+  color: #64748b;
   margin: 0;
 }
 
@@ -30,111 +30,20 @@
   gap: 20px;
 }
 
-/* Drag and Drop Zone */
-.dropzone {
-  border: 2px dashed #d1d5db;
-  border-radius: 12px;
-  padding: 40px 20px;
-  text-align: center;
-  cursor: pointer;
-  background-color: #f9fafb;
-  transition: all 0.2s ease;
-}
-
-.dropzone.dragging {
-  border-color: #4f46e5;
-  background-color: #eef2ff;
-}
-
-.dropzone-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.drop-text {
-  font-size: 1.1rem;
-  color: #374151;
-  margin: 0;
-}
-
-.sub-text {
-  font-size: 0.875rem;
-  color: #9ca3af;
-  margin: 0;
-}
-
-.select-btn {
-  background-color: #4f46e5;
-  color: #ffffff;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 6px;
-  font-weight: 600;
-  cursor: pointer;
-  font-size: 0.9rem;
-  margin-top: 8px;
-  transition: background-color 0.2s ease;
-}
-
-.select-btn:hover {
-  background-color: #4338ca;
-}
-
-.file-badge {
-  margin-top: 20px;
-  padding: 10px 16px;
-  background-color: #e0e7ff;
-  color: #3730a3;
-  border-radius: 20px;
-  display: inline-block;
-  font-size: 0.875rem;
-}
-
-.upload-btn {
-  background-color: #059669;
-  color: #ffffff;
-  border: none;
+.status-banner {
   padding: 14px;
   border-radius: 8px;
-  font-weight: 700;
-  font-size: 1rem;
-  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
   text-align: center;
-  transition: background-color 0.2s ease;
 }
 
-.upload-btn:hover {
-  background-color: #047857;
+.status-banner.loading {
+  background-color: #e0e7ff;
+  color: #3730a3;
 }
 
-.upload-btn:disabled {
-  background-color: #9ca3af;
-  cursor: not-allowed;
-}
-
-.error-message {
-  padding: 12px;
+.status-banner.error {
   background-color: #fee2e2;
   color: #991b1b;
-  border-radius: 6px;
-  font-size: 0.9rem;
-}
-
-.preview-container {
-  margin-top: 20px;
-  padding: 16px;
-  background-color: #f3f4f6;
-  border-radius: 8px;
-}
-
-.preview-title {
-  margin: 0;
-  color: #111827;
-}
-
-.preview-subtitle {
-  font-size: 14px;
-  color: #6b7280;
 }
