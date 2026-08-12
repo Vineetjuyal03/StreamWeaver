@@ -1,0 +1,104 @@
+.preview-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  margin-top: 24px;
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.preview-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.preview-meta {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin: 4px 0 0 0;
+}
+
+.column-badge {
+  background-color: #e0e7ff;
+  color: #3730a3;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 20px;
+}
+
+/* Outer Wrapper for Horizontal and Vertical Scrollbars */
+.virtual-table-wrapper {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  overflow-x: auto; /* Handles horizontal scrolling when columns exceed screen width */
+  background-color: #ffffff;
+}
+
+/* Header Row Styling */
+.virtual-header-row {
+  display: flex;
+  background-color: #f1f5f9;
+  border-bottom: 2px solid #cbd5e1;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #334155;
+}
+
+.virtual-header-cell {
+  flex: 0 0 180px; /* Matches COLUMN_WIDTH */
+  padding: 10px 12px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+}
+
+/* Virtualized Body Rows */
+.virtual-row {
+  display: flex;
+  font-size: 0.85rem;
+  color: #1e293b;
+  border-bottom: 1px solid #f1f5f9;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.virtual-row.even {
+  background-color: #ffffff;
+}
+
+.virtual-row.odd {
+  background-color: #f8fafc;
+}
+
+.virtual-row:hover {
+  background-color: #e2e8f0;
+}
+
+.virtual-cell {
+  flex: 0 0 180px; /* Matches COLUMN_WIDTH */
+  padding: 8px 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+}
+
+/* Special Styling for Index # Column */
+.cell-index {
+  flex: 0 0 60px !important; /* Matches INDEX_WIDTH */
+  color: #94a3b8;
+  font-weight: 600;
+  text-align: center;
+}
