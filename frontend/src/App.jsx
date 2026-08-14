@@ -1,122 +1,72 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import React, { useState } from 'react';
+import DropZone from './components/DropZone/DropZone';
+import PreviewTable from './components/PreviewTable/PreviewTable';
+import { parseFilePreview } from './utils/fileParser';
+import './App.css';
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [fileInfo, setFileInfo] = useState(null);
+  const [headers, setHeaders] = useState([]);
+  const [previewRows, setPreviewRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Handler when user selects or drops a file
+  const handleFileSelect = async (selectedFile) => {
+    setError('');
+    setLoading(true);
+    setPreviewRows([]);
+    setHeaders([]);
+
+    try {
+      // Parse first 1MB chunk directly in browser memory
+      const result = await parseFilePreview(selectedFile, 1000);
+
+      setFileInfo({
+        name: result.fileName,
+        sizeMB: result.fileSizeMB,
+        rawFile: selectedFile,
+      });
+      setHeaders(result.headers);
+      setPreviewRows(result.rows);
+    } catch (err) {
+      setError(err.message || 'Error processing file preview.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="app-container">
+      <header className="app-header">
+        <h1 className="app-title">StreamWeaver</h1>
+        <p className="app-subtitle">High-Throughput No-Code ETL Pipeline</p>
+      </header>
 
-      <div className="ticks"></div>
+      <main className="app-main">
+        {/* Step 1: DropZone File Input */}
+        <DropZone onFileSelect={handleFileSelect} disabled={loading} />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        {/* Loading Indicator */}
+        {loading && (
+          <div className="status-banner loading">
+            ⚡ Parsing first 1,000 rows in memory...
+          </div>
+        )}
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+        {/* Error Alert */}
+        {error && <div className="status-banner error">{error}</div>}
+
+        {/* Step 2: Virtualized 1,000 Row Preview Table */}
+        {previewRows.length > 0 && (
+          <PreviewTable
+            headers={headers}
+            rows={previewRows}
+            fileName={fileInfo?.name}
+            fileSizeMB={fileInfo?.sizeMB}
+          />
+        )}
+      </main>
+    </div>
+  );
 }
-
-export default App
