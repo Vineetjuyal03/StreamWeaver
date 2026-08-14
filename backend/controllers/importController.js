@@ -2,13 +2,20 @@
 const Busboy = require("busboy");
 const csv = require("csv-parser");
 
-const cleanRowStream = require("../streams/cleanRowStream");
+// const cleanRowStream = require("../streams/cleanRowStream");
+const createMappingStream = require("../streams/cleanRowStream");
 
 const uploadCSV = (req, res) => {
 
     const busboy = Busboy({
         headers: req.headers
     });
+
+     const mapping = {
+        first_name: "firstName",
+        last_name: "lastName",
+        email: "emailAddress"
+    };
 
     let rowCount = 0;
 
@@ -17,10 +24,11 @@ const uploadCSV = (req, res) => {
         const { filename } = info;
 
         console.log("Processing:", filename);
+        const mappingStream = createMappingStream(mapping)
 
         file
             .pipe(csv())
-            .pipe(cleanRowStream)
+            .pipe(mappingStream)
             .on("data", (row) => {
 
                 rowCount++;
