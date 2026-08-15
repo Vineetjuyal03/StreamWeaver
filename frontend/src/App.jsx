@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import DropZone from './components/DropZone/DropZone';
 import PreviewTable from './components/PreviewTable/PreviewTable';
+import MappingUI from './components/MappingUI/MappingUI';
 import { parseFilePreview } from './utils/fileParser';
 import { fetchCollections } from './services/api';
 import './App.css';
@@ -22,7 +23,24 @@ export default function App() {
   const [selectedCollection, setSelectedCollection] = useState('');
   const [collectionsLoading, setCollectionsLoading] = useState(true);
   const [collectionsError, setCollectionsError] = useState('');
+  // -----------------------------
+  // Mapping state
+  // -----------------------------
+  const [destinationFields, setDestinationFields] = useState([
+    'firstName',
+    'lastName',
+    'email',
+    'age',
+    'phoneNumber',
+  ]);
 
+  const [mapping, setMapping] = useState({});
+  const handleMappingChange = (sourceColumn, destinationField) => {
+    setMapping((previousMapping) => ({
+      ...previousMapping,
+      [sourceColumn]: destinationField,
+    }));
+  };
   // -----------------------------
   // Fetch collections on app load
   // -----------------------------
@@ -188,7 +206,14 @@ export default function App() {
             fileSizeMB={fileInfo?.sizeMB}
           />
         )}
-
+        {previewRows.length > 0 && selectedCollection && (
+          <MappingUI
+            headers={headers}
+            destinationFields={destinationFields}
+            mapping={mapping}
+            onMappingChange={handleMappingChange}
+          />
+        )}
       </main>
     </div>
   );
