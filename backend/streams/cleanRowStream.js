@@ -1,25 +1,3 @@
-// const { Transform } = require("stream");
-
-// const cleanRowStream = new Transform({
-//     objectMode: true,
-
-//     transform(row, encoding, callback) {
-
-//         console.log("Before transform:", row);
-
-//         // Example transformation
-//         if (row.first_name) {
-//             row.first_name = row.first_name.toUpperCase();
-//         }
-
-//         console.log("After transform:", row);
-
-//         callback(null, row);
-//     }
-// });
-
-// module.exports = cleanRowStream;
-
 const { Transform } = require("stream");
 
 const createMappingStream = (mapping) => {
@@ -29,29 +7,35 @@ const createMappingStream = (mapping) => {
 
         transform(row, encoding, callback) {
 
-            try {
+            console.log("CSV ROW RECEIVED:", row);
+            console.log("AVAILABLE COLUMNS:", Object.keys(row));
 
-                const mappedRow = {};
+            const mappedRow = {};
 
-                for (const sourceColumn in mapping) {
+            for (const sourceColumn in mapping) {
 
-                    const destinationField = mapping[sourceColumn];
+                const destinationColumn =
+                    mapping[sourceColumn];
 
-                    mappedRow[destinationField] = row[sourceColumn];
+                console.log(
+                    `Mapping ${sourceColumn} -> ${destinationColumn}`
+                );
 
-                }
+                console.log(
+                    "Value:",
+                    row[sourceColumn]
+                );
 
-                console.log("Original:", row);
-
-                console.log("Mapped:", mappedRow);
-
-                callback(null, mappedRow);
-
-            } catch (error) {
-
-                callback(error);
-
+                mappedRow[destinationColumn] =
+                    row[sourceColumn];
             }
+
+            console.log(
+                "FINAL MAPPED ROW:",
+                mappedRow
+            );
+
+            callback(null, mappedRow);
         }
     });
 };
