@@ -3,35 +3,41 @@ const { Transform } = require("stream");
 const createMappingStream = (mapping) => {
 
     return new Transform({
-
         objectMode: true,
 
         transform(row, encoding, callback) {
 
-            try {
+            console.log("CSV ROW RECEIVED:", row);
+            console.log("AVAILABLE COLUMNS:", Object.keys(row));
 
-                const mappedRow = {};
+            const mappedRow = {};
 
-                for (
-                    const sourceColumn in mapping
-                ) {
+            for (const sourceColumn in mapping) {
 
-                    const destinationColumn =
-                        mapping[sourceColumn];
+                const destinationColumn =
+                    mapping[sourceColumn];
 
-                    mappedRow[destinationColumn] =
-                        row[sourceColumn];
-                }
+                console.log(
+                    `Mapping ${sourceColumn} -> ${destinationColumn}`
+                );
 
-                callback(null, mappedRow);
+                console.log(
+                    "Value:",
+                    row[sourceColumn]
+                );
 
-            } catch (error) {
-
-                callback(error);
+                mappedRow[destinationColumn] =
+                    row[sourceColumn];
             }
+
+            console.log(
+                "FINAL MAPPED ROW:",
+                mappedRow
+            );
+
+            callback(null, mappedRow);
         }
     });
 };
 
-module.exports =
-    createMappingStream;
+module.exports = createMappingStream;
