@@ -1,6 +1,6 @@
 const Busboy = require("busboy");
 const csv = require("csv-parser");
-const { Transform } = require("stream");
+const { Transform, PassThrough} = require("stream");
 
 const createMappingStream =
     require("../streams/cleanRowStream");
@@ -8,6 +8,8 @@ const createMappingStream =
 const createMongoBatchStream =
     require("../streams/mongoBatchStream");
 
+const createCustomTransformStream =
+    require("../streams/customTransformStream");
 
 const uploadCSV = (req, res) => {
 
@@ -20,13 +22,19 @@ const uploadCSV = (req, res) => {
     });
 
     let mapping = null;
-    let fileStarted = false;
+    let transformations = [];
+    let fileStream = null;
+    let filename = null;
 
     const importId = `import_${Date.now()}`;
 
-    // -----------------------------
-    // RECEIVE FORM-DATA FIELD
-    // -----------------------------
+    // Store incoming file chunks temporarily
+    const fileBuffer = new PassThrough();
+
+
+    // =====================================
+    // FORM DATA
+    // =====================================
 
     busboy.on("field", (fieldname, value) => {
 
@@ -40,204 +48,195 @@ const uploadCSV = (req, res) => {
 
                 mapping = JSON.parse(value);
 
+                console.log("PARSED MAPPING:",mapping);
+
+            } catch (error) {
+
+                console.error(
+                    "Mapping JSON error:",
+                    error.message
+                );
+            }
+        }
+
+
+        if (fieldname === "transformations") {
+
+            try {
+
+                transformations = JSON.parse(value);
+
                 console.log(
-                    "PARSED MAPPING:",
-                    mapping
+                    "PARSED TRANSFORMATIONS:",
+                    transformations
                 );
 
             } catch (error) {
 
                 console.error(
-                    "MAPPING JSON ERROR:",
+                    "Transformation JSON error:",
                     error.message
                 );
             }
         }
+
     });
 
 
-    // -----------------------------
-    // RECEIVE CSV FILE
-    // -----------------------------
+    // =====================================
+    // FILE
+    // =====================================
 
     busboy.on("file", (fieldname, file, info) => {
 
-        fileStarted = true;
+    fileStarted = true;
 
-        console.log("FILE RECEIVED");
-        console.log("Field name:", fieldname);
-        console.log("Filename:", info.filename);
+    console.log("FILE RECEIVED");
+    console.log("Field name:", fieldname);
+    console.log("Filename:", info.filename);
 
-        /*
-         * IMPORTANT:
-         *
-         * For this test, put mapping BEFORE
-         * file in Postman's form-data.
-         */
 
-        if (!mapping) {
+    if (!mapping) {
 
-            console.error(
-                "Mapping has not been received yet."
+        console.error(
+            "Mapping has not been received yet."
+        );
+
+        file.resume();
+
+        return;
+    }
+
+
+    console.log("Creating mapping stream...");
+
+    const mappingStream =
+        createMappingStream(mapping);
+
+
+    console.log(
+        "Transformations received:",
+        transformations
+    );
+
+
+    const customTransformStream =
+        createCustomTransformStream(
+            transformations
+        );
+
+
+    let rowCount = 0;
+
+
+    const counterStream = new Transform({
+
+        objectMode: true,
+
+        transform(row, encoding, callback) {
+
+            rowCount++;
+
+            console.log(
+                `Mapped row ${rowCount}:`,
+                row
             );
 
-            file.resume();
-
-            return;
+            callback(null, row);
         }
 
-
-        console.log("Creating mapping stream...");
-
-        const mappingStream =
-            createMappingStream(mapping);
-
-
-        // -----------------------------
-        // ROW COUNTER
-        // -----------------------------
-
-        let rowCount = 0;
-
-        const counterStream = new Transform({
-
-            objectMode: true,
-
-            transform(row, encoding, callback) {
-
-                rowCount++;
-
-                console.log(
-                    `Mapped row ${rowCount}:`,
-                    row
-                );
-
-                callback(null, row);
-            }
-        });
-
-
-        // -----------------------------
-        // MONGODB STREAM
-        // -----------------------------
-
-        console.log(
-            "Creating MongoDB batch stream..."
-        );
-
-        const mongoBatchStream =
-            createMongoBatchStream(importId);
-
-
-        // -----------------------------
-        // MONGODB FINISHED
-        // -----------------------------
-
-        mongoBatchStream.on("finish", () => {
-
-            console.log(
-                "================================="
-            );
-
-            console.log(
-                "MONGODB INSERTION COMPLETED"
-            );
-
-            console.log(
-                "Total rows:",
-                rowCount
-            );
-
-            console.log(
-                "Import ID:",
-                importId
-            );
-
-            console.log(
-                "================================="
-            );
-
-
-            if (!res.headersSent) {
-
-                return res.status(200).json({
-
-                    success: true,
-
-                    message:
-                        "CSV imported successfully",
-
-                    importId,
-
-                    rowsInserted: rowCount
-                });
-            }
-
-        });
-
-
-        // -----------------------------
-        // ERROR
-        // -----------------------------
-
-        mongoBatchStream.on("error", (error) => {
-
-            console.error(
-                "MONGODB STREAM ERROR:",
-                error
-            );
-
-            if (!res.headersSent) {
-
-                return res.status(500).json({
-
-                    success: false,
-
-                    message:
-                        "MongoDB insertion failed",
-
-                    error: error.message
-                });
-            }
-        });
-
-
-        // -----------------------------
-        // PIPELINE
-        // -----------------------------
-
-        console.log(
-            "Starting CSV pipeline..."
-        );
-
-        file
-
-            .pipe(csv())
-
-            .pipe(mappingStream)
-
-            .pipe(counterStream)
-
-            .pipe(mongoBatchStream);
     });
 
 
-    // -----------------------------
-    // BUSBOY FINISH
-    // -----------------------------
+    console.log(
+        "Creating MongoDB batch stream..."
+    );
 
-    busboy.on("finish", () => {
+
+    const mongoBatchStream =
+        createMongoBatchStream(importId);
+
+
+    mongoBatchStream.on("finish", () => {
 
         console.log(
-            "Busboy finished receiving request"
+            "================================="
         );
+
+        console.log(
+            "MONGODB INSERTION COMPLETED"
+        );
+
+        console.log(
+            "Total rows:",
+            rowCount
+        );
+
+        console.log(
+            "Import ID:",
+            importId
+        );
+
+        if (!res.headersSent) {
+
+            return res.status(200).json({
+
+                success: true,
+
+                message:
+                    "CSV imported successfully",
+
+                importId,
+
+                rowsInserted:
+                    rowCount
+
+            });
+        }
 
     });
 
 
-    // -----------------------------
+    mongoBatchStream.on("error", (error) => {
+
+        console.error(
+            "MONGODB STREAM ERROR:",
+            error
+        );
+
+
+        if (!res.headersSent) {
+
+            return res.status(500).json({
+
+                success: false,
+
+                message:
+                    "MongoDB insertion failed",
+
+                error:
+                    error.message
+
+            });
+        }
+
+    });
+
+    console.log("Starting CSV pipeline..." );
+
+    file
+        .pipe(csv())
+        .pipe(mappingStream)
+        .pipe(customTransformStream)
+        .pipe(counterStream)
+        .pipe(mongoBatchStream);
+
+});
+
+
+    // =====================================
     // BUSBOY ERROR
-    // -----------------------------
+    // =====================================
 
     busboy.on("error", (error) => {
 
@@ -248,23 +247,21 @@ const uploadCSV = (req, res) => {
 
         if (!res.headersSent) {
 
-            return res.status(500).json({
+            res.status(500).json({
 
                 success: false,
 
                 message:
-                    "CSV upload failed",
+                    "Upload failed",
 
-                error: error.message
+                error:
+                    error.message
+
             });
+
         }
+
     });
-
-
-    // -----------------------------
-    // START BUSBOY
-    // -----------------------------
-
     req.pipe(busboy);
 };
 
@@ -272,6 +269,3 @@ const uploadCSV = (req, res) => {
 module.exports = {
     uploadCSV
 };
-
-
-

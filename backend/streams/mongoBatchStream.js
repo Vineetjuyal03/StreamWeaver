@@ -32,11 +32,14 @@ const createMongoBatchStream = (importId) => {
 
                         document: {
 
-                            importId: importId,
+                            importId,
 
                             data: row
+
                         }
+
                     }
+
                 });
 
 
@@ -46,7 +49,6 @@ const createMongoBatchStream = (importId) => {
                 );
 
 
-                // Insert every 1000 rows
                 if (batch.length >= BATCH_SIZE) {
 
                     console.log(
@@ -56,13 +58,21 @@ const createMongoBatchStream = (importId) => {
 
                     const result =
                         await ImportedData.bulkWrite(
-                            batch
+                            batch,
+                            {
+                                ordered: false
+                            }
                         );
 
 
                     console.log(
                         "bulkWrite result:",
                         result
+                    );
+
+
+                    console.log(
+                        `Inserted ${batch.length} rows`
                     );
 
 
@@ -93,31 +103,37 @@ const createMongoBatchStream = (importId) => {
                     "Mongo stream FINAL called"
                 );
 
+
                 console.log(
                     "Remaining batch:",
                     batch.length
                 );
 
 
-                // Very important for files
-                // containing less than 1000 rows
-
                 if (batch.length > 0) {
 
                     console.log(
-                        "Inserting final batch..."
+                        `Inserting final ${batch.length} rows...`
                     );
 
 
                     const result =
                         await ImportedData.bulkWrite(
-                            batch
+                            batch,
+                            {
+                                ordered: false
+                            }
                         );
 
 
                     console.log(
                         "FINAL bulkWrite result:",
                         result
+                    );
+
+
+                    console.log(
+                        `Final ${batch.length} rows inserted`
                     );
 
 
