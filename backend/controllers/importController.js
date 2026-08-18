@@ -11,6 +11,15 @@ const createMongoBatchStream =
 const createCustomTransformStream =
     require("../streams/customTransformStream");
 
+const {
+    startImport,
+    updateProgress,
+    completeImport,
+    getProgress
+} = require("../utils/importProgress");
+
+const counterStream = require('../streams/counterStream')
+
 const uploadCSV = (req, res) => {
 
     console.log("=================================");
@@ -27,6 +36,7 @@ const uploadCSV = (req, res) => {
     let filename = null;
 
     const importId = `import_${Date.now()}`;
+    startImport(importId);
 
     // Store incoming file chunks temporarily
     const fileBuffer = new PassThrough();
@@ -129,72 +139,150 @@ const uploadCSV = (req, res) => {
     let rowCount = 0;
 
 
+    // const counterStream = new Transform({
+
+    //     objectMode: true,
+
+    //     transform(row, encoding, callback) {
+
+    //         rowCount++;
+
+    //         console.log(
+    //             `Mapped row ${rowCount}:`,
+    //             row
+    //         );
+
+    //         callback(null, row);
+    //     }
+
+    // });
     const counterStream = new Transform({
 
-        objectMode: true,
+    objectMode: true,
 
-        transform(row, encoding, callback) {
+    transform(row, encoding, callback) {
 
-            rowCount++;
+        rowCount++;
+
+        updateProgress(importId, 1);
+
+        if (
+            rowCount % 1000 === 0
+        ) {
+
+            const progress =
+                getProgress(importId);
 
             console.log(
-                `Mapped row ${rowCount}:`,
-                row
+                "================================="
             );
 
-            callback(null, row);
+            console.log(
+                "Rows processed:",
+                progress.rowsProcessed
+            );
+
+            console.log(
+                "Rows/sec:",
+                progress.rowsPerSecond
+            );
+
+            console.log(
+                "================================="
+            );
         }
 
-    });
-
-
-    console.log(
-        "Creating MongoDB batch stream..."
-    );
+        callback(null, row);
+    }
+});
 
 
     const mongoBatchStream =
         createMongoBatchStream(importId);
 
+        completeImport(importId);
+    // mongoBatchStream.on("finish", () => {
+
+    //     console.log(
+    //         "================================="
+    //     );
+
+    //     console.log(
+    //         "MONGODB INSERTION COMPLETED"
+    //     );
+
+    //     console.log(
+    //         "Total rows:",
+    //         rowCount
+    //     );
+
+    //     console.log(
+    //         "Import ID:",
+    //         importId
+    //     );
+
+    //     if (!res.headersSent) {
+
+    //         return res.status(200).json({
+
+    //             success: true,
+
+    //             message:
+    //                 "CSV imported successfully",
+
+    //             importId,
+
+    //             rowsInserted:
+    //                 rowCount
+
+    //         });
+    //     }
+
+    // });
 
     mongoBatchStream.on("finish", () => {
 
-        console.log(
-            "================================="
-        );
+    completeImport(importId);
 
-        console.log(
-            "MONGODB INSERTION COMPLETED"
-        );
+    console.log(
+        "================================="
+    );
 
-        console.log(
-            "Total rows:",
-            rowCount
-        );
+    console.log(
+        "MONGODB INSERTION COMPLETED"
+    );
 
-        console.log(
-            "Import ID:",
-            importId
-        );
+    console.log(
+        "Total rows:",
+        rowCount
+    );
 
-        if (!res.headersSent) {
+    const progress =
+        getProgress(importId);
 
-            return res.status(200).json({
+    console.log(
+        "Rows/sec:",
+        progress.rowsPerSecond
+    );
 
-                success: true,
+    if (!res.headersSent) {
+        return res.status(200).json({
 
-                message:
-                    "CSV imported successfully",
+            success: true,
 
-                importId,
+            message:
+                "CSV imported successfully",
 
-                rowsInserted:
-                    rowCount
+            importId,
 
-            });
-        }
+            rowsInserted:
+                rowCount,
 
-    });
+            rowsPerSecond:
+                progress.rowsPerSecond
+        });
+    }
+});
 
 
     mongoBatchStream.on("error", (error) => {
