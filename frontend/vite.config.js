@@ -1,10 +1,7 @@
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react'; // Fixed: replaced dot with slash
+import react from '@vitejs/plugin-react';
 
-// https://vitejs.dev/config/
+// Standard Vite 8 + React 19 Config
 export default defineConfig({
   plugins: [react()],
-  optimizeDeps: {
-    include: ['react-window', 'papaparse'], // Pre-bundles CommonJS modules
-  },
 });

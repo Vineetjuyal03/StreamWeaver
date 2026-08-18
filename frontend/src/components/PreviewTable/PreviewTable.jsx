@@ -1,84 +1,138 @@
 import React from 'react';
-import { FixedSizeList as List } from 'react-window';
+import { List } from 'react-window';
 import './PreviewTable.css';
 
-export default function PreviewTable({ headers, rows, fileName, fileSizeMB }) {
-  // Console log to verify components and state
-  console.log('🔍 PreviewTable Loaded:', {
-    headersCount: headers?.length,
-    rowsCount: rows?.length,
-    isListAvailable: Boolean(List),
-  });
+const ROW_HEIGHT = 40;
+const VIEWPORT_HEIGHT = 400;
+const COLUMN_WIDTH = 180;
+const INDEX_WIDTH = 60;
 
-  if (!rows || rows.length === 0) return null;
+function VirtualRow({
+  index,
+  style,
+  rows,
+  headers,
+  totalWidth,
+}) {
+  const rowData = rows[index];
 
-  // Layout metrics for virtualization
-  const ROW_HEIGHT = 40;
-  const VIEWPORT_HEIGHT = 400; 
-  const COLUMN_WIDTH = 180;    
-  const INDEX_WIDTH = 60;      
-  const TOTAL_WIDTH = INDEX_WIDTH + headers.length * COLUMN_WIDTH;
-
-  // Render function for visible virtual rows
-  const Row = ({ index, style }) => {
-    const rowData = rows[index];
-
-    return (
+  return (
+    <div
+      style={{
+        ...style,
+        width: totalWidth,
+      }}
+      className={`virtual-row ${index % 2 === 0 ? 'even' : 'odd'}`}
+    >
       <div
-        style={{ ...style, width: TOTAL_WIDTH }}
-        className={`virtual-row ${index % 2 === 0 ? 'even' : 'odd'}`}
+        className="virtual-cell cell-index"
+        style={{ width: INDEX_WIDTH }}
       >
-        <div className="virtual-cell cell-index">{index + 1}</div>
-        {headers.map((header) => (
-          <div key={header} className="virtual-cell" title={String(rowData[header] ?? '')}>
-            {String(rowData[header] ?? '')}
-          </div>
-        ))}
+        {index + 1}
       </div>
-    );
-  };
+
+      {headers.map((header) => (
+        <div
+          key={header}
+          className="virtual-cell"
+          style={{ width: COLUMN_WIDTH }}
+          title={String(rowData?.[header] ?? '')}
+        >
+          <span className="cell-content">
+            {String(rowData?.[header] ?? '')}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function PreviewTable({
+  headers = [],
+  rows = [],
+  fileName,
+  fileSizeMB,
+}) {
+  if (!rows.length || !headers.length) {
+    return null;
+  }
+
+  const totalWidth =
+    INDEX_WIDTH + headers.length * COLUMN_WIDTH;
 
   return (
     <div className="preview-card">
+
+      {/* Header */}
       <div className="preview-header">
         <div>
-          <h3 className="preview-title">Sample Data Preview (Virtualized)</h3>
+          <h3 className="preview-title">
+            Sample Data Preview
+          </h3>
+
           <p className="preview-meta">
-            Showing first <strong>{rows.length}</strong> rows from <code>{fileName}</code> ({fileSizeMB} MB)
+            Showing first{' '}
+            <strong>{rows.length}</strong> rows from{' '}
+            <code>{fileName}</code>
+
+            {fileSizeMB != null && (
+              <> ({fileSizeMB} MB)</>
+            )}
           </p>
         </div>
-        <div className="column-badge">{headers.length} Columns Detected</div>
+
+        <div className="column-badge">
+          {headers.length} Columns Detected
+        </div>
       </div>
 
-      {/* Horizontal & Vertical Scroll Outer Container */}
+      {/* Horizontal scrolling container */}
       <div className="virtual-table-wrapper">
-        <div style={{ width: TOTAL_WIDTH }}>
-          
-          {/* Sticky Column Headers */}
-          <div className="virtual-header-row">
-            <div className="virtual-header-cell cell-index">#</div>
+
+        <div
+          className="virtual-table"
+          style={{ width: totalWidth }}
+        >
+
+          {/* Header */}
+          <div
+            className="virtual-header-row"
+            style={{ width: totalWidth }}
+          >
+            <div
+              className="virtual-header-cell cell-index"
+              style={{ width: INDEX_WIDTH }}
+            >
+              #
+            </div>
+
             {headers.map((header) => (
-              <div key={header} className="virtual-header-cell">
+              <div
+                key={header}
+                className="virtual-header-cell"
+                style={{ width: COLUMN_WIDTH }}
+              >
                 {header}
               </div>
             ))}
           </div>
 
-          {/* Virtualized Rows List */}
-          {List ? (
-            <List
-              height={VIEWPORT_HEIGHT}
-              itemCount={rows.length}
-              itemSize={ROW_HEIGHT}
-              width={TOTAL_WIDTH}
-            >
-              {Row}
-            </List>
-          ) : (
-            <div style={{ padding: '20px', color: '#dc2626', textAlign: 'center' }}>
-              ⚠️ Unable to load react-window list component.
-            </div>
-          )}
+          {/* Virtualized rows */}
+          <List
+            rowComponent={VirtualRow}
+            rowCount={rows.length}
+            rowHeight={ROW_HEIGHT}
+            rowProps={{
+              rows,
+              headers,
+              totalWidth,
+            }}
+            overscanCount={5}
+            style={{
+              height: VIEWPORT_HEIGHT,
+              width: totalWidth,
+            }}
+          />
 
         </div>
       </div>
