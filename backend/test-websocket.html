@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>StreamWeaver WebSocket Test</title>
+</head>
+
+<body>
+
+    <h2>StreamWeaver WebSocket Test</h2>
+
+    <input
+        id="importId"
+        placeholder="Enter importId"
+    />
+
+    <button onclick="connectSocket()">
+        Connect
+    </button>
+
+    <pre id="output"></pre>
+
+
+    <script>
+
+        let socket;
+
+        function log(message) {
+
+            document.getElementById(
+                "output"
+            ).textContent +=
+                message + "\n";
+        }
+
+
+        function connectSocket() {
+
+            const importId =
+                document.getElementById(
+                    "importId"
+                ).value;
+
+
+            if (!importId) {
+
+                alert(
+                    "Enter importId first"
+                );
+
+                return;
+            }
+
+
+            socket =
+                new WebSocket(
+                    "ws://localhost:5000"
+                );
+
+
+            socket.onopen = () => {
+
+                log(
+                    "WebSocket connected"
+                );
+
+
+                socket.send(
+                    JSON.stringify({
+
+                        type: "subscribe",
+
+                        importId:
+                            importId
+
+                    })
+                );
+
+
+                log(
+                    "Subscribed to: " +
+                    importId
+                );
+
+            };
+
+
+            socket.onmessage = (event) => {
+
+                console.log(
+                    "Received:",
+                    event.data
+                );
+
+
+                const data =
+                    JSON.parse(
+                        event.data
+                    );
+
+
+                log(
+                    JSON.stringify(
+                        data,
+                        null,
+                        2
+                    )
+                );
+
+            };
+
+
+            socket.onerror = (error) => {
+
+                console.error(
+                    "WebSocket error:",
+                    error
+                );
+
+                log(
+                    "WebSocket error"
+                );
+
+            };
+
+
+            socket.onclose = () => {
+
+                log("WebSocket disconnected" );
+
+            };
+
+        }
+
+    </script>
+
+</body>
+</html>

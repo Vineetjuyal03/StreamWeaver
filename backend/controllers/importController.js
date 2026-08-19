@@ -1,6 +1,6 @@
 const Busboy = require("busboy");
 const csv = require("csv-parser");
-const { Transform, PassThrough} = require("stream");
+const { Transform } = require("stream");
 
 const createMappingStream =
     require("../streams/cleanRowStream");
@@ -11,6 +11,8 @@ const createMongoBatchStream =
 const createCustomTransformStream =
     require("../streams/customTransformStream");
 
+const { sendProgress } = require("../websocket/progressServer");
+
 const {
     startImport,
     updateProgress,
@@ -18,7 +20,7 @@ const {
     getProgress
 } = require("../utils/importProgress");
 
-const counterStream = require('../streams/counterStream')
+// const counterStream = require('../streams/counterStream')
 
 const uploadCSV = (req, res) => {
 
@@ -38,8 +40,8 @@ const uploadCSV = (req, res) => {
     const importId = `import_${Date.now()}`;
     startImport(importId);
 
-    // Store incoming file chunks temporarily
-    const fileBuffer = new PassThrough();
+    // // Store incoming file chunks temporarily
+    // const fileBuffer = new PassThrough();
 
 
     // =====================================
@@ -58,7 +60,7 @@ const uploadCSV = (req, res) => {
 
                 mapping = JSON.parse(value);
 
-                console.log("PARSED MAPPING:",mapping);
+                console.log("PARSED MAPPING:", mapping);
 
             } catch (error) {
 
@@ -99,64 +101,102 @@ const uploadCSV = (req, res) => {
 
     busboy.on("file", (fieldname, file, info) => {
 
-    fileStarted = true;
+        fileStarted = true;
 
-    console.log("FILE RECEIVED");
-    console.log("Field name:", fieldname);
-    console.log("Filename:", info.filename);
-
-
-    if (!mapping) {
-
-        console.error(
-            "Mapping has not been received yet."
-        );
-
-        file.resume();
-
-        return;
-    }
+        console.log("FILE RECEIVED");
+        console.log("Field name:", fieldname);
+        console.log("Filename:", info.filename);
 
 
-    console.log("Creating mapping stream...");
+        if (!mapping) {
 
-    const mappingStream =
-        createMappingStream(mapping);
+            console.error(
+                "Mapping has not been received yet."
+            );
+
+            file.resume();
+
+            return;
+        }
 
 
-    console.log(
-        "Transformations received:",
-        transformations
-    );
+        console.log("Creating mapping stream...");
+
+        const mappingStream =
+            createMappingStream(mapping);
 
 
-    const customTransformStream =
-        createCustomTransformStream(
+        console.log(
+            "Transformations received:",
             transformations
         );
 
 
-    let rowCount = 0;
+        const customTransformStream =
+            createCustomTransformStream(
+                transformations
+            );
 
 
-    // const counterStream = new Transform({
+        let rowCount = 0;
 
-    //     objectMode: true,
 
-    //     transform(row, encoding, callback) {
+        // const counterStream = new Transform({
 
-    //         rowCount++;
+        //     objectMode: true,
 
-    //         console.log(
-    //             `Mapped row ${rowCount}:`,
-    //             row
-    //         );
+        //     transform(row, encoding, callback) {
 
-    //         callback(null, row);
-    //     }
+        //         rowCount++;
 
-    // });
-    const counterStream = new Transform({
+        //         console.log(
+        //             `Mapped row ${rowCount}:`,
+        //             row
+        //         );
+
+        //         callback(null, row);
+        //     }
+
+        // });
+        // const counterStream = new Transform({
+
+        //     objectMode: true,
+
+        //     transform(row, encoding, callback) {
+        //         rowCount++;
+        //         updateProgress(importId, 1);
+        //         if (rowCount % 1000 === 0) {
+        //             const progress =
+        //             getProgress(importId);
+        //             console.log("Rows processed:", progress.rowsProcessed);
+        //             console.log("Rows/sec:", progress.rowsPerSecond);
+        //             console.log("Sending WebSocket progress:",progress);
+        //             sendProgress(importId,
+        //             {
+        //                 rowsProcessed:progress.rowsProcessed,
+        //                 rowsPerSecond:progress.rowsPerSecond,
+        //                 rowsPerSecond: getProgress(importId).rowsPerSecond,
+        //                 rowsProcessed: rowCount,
+        //                 status:"processing"
+        //             }
+        //         );
+        //         }
+        //         // if (rowCount % 1000 === 0) {
+        //         //     sendProgress(
+        //         //         importId,
+        //         //         {
+        //         //             rowsProcessed: rowCount,
+        //         //             rowsPerSecond: getProgress(importId).rowsPerSecond,
+        //         //             status: "processing"
+        //         //         }
+        //         //     );
+
+        //         // }
+        //         callback(null, row);
+        //     }
+        // });
+
+        const counterStream = new Transform({
 
     objectMode: true,
 
@@ -164,22 +204,72 @@ const uploadCSV = (req, res) => {
 
         rowCount++;
 
-        updateProgress(importId, 1);
+        updateProgress(
+            importId,
+            1
+        );
 
-        if (
-            rowCount % 1000 === 0
-        ) {
+
+        if (rowCount % 1000 === 0) {
 
             const progress =
                 getProgress(importId);
 
+
             console.log(
-                "================================="
+                "Sending progress for row:",
+                rowCount
+            );
+
+
+            sendProgress(
+                importId,
+                {
+                    rowsProcessed:
+                        progress.rowsProcessed,
+
+                    rowsPerSecond:
+                        progress.rowsPerSecond,
+
+                    status: "processing"
+                }
+            );
+
+        }
+
+
+        callback(null, row);
+    }
+
+});
+
+        const mongoBatchStream =
+            createMongoBatchStream(importId);
+
+        mongoBatchStream.on("finish", () => {
+            completeImport(importId);
+
+            console.log(
+                "MONGODB INSERTION COMPLETED"
             );
 
             console.log(
-                "Rows processed:",
-                progress.rowsProcessed
+                "Total rows:",
+                rowCount
+            );
+
+            const progress = getProgress(importId);
+            sendProgress(importId,
+                {
+                    rowsProcessed:
+                        progress.rowsProcessed,
+
+                    rowsPerSecond:
+                        progress.rowsPerSecond,
+
+                    status:
+                        "completed"
+                }
             );
 
             console.log(
@@ -187,139 +277,61 @@ const uploadCSV = (req, res) => {
                 progress.rowsPerSecond
             );
 
-            console.log(
-                "================================="
-            );
-        }
+            if (!res.headersSent) {
+                return res.status(200).json({
 
-        callback(null, row);
-    }
-});
+                    success: true,
 
+                    message:
+                        "CSV imported successfully",
 
-    const mongoBatchStream =
-        createMongoBatchStream(importId);
+                    importId,
 
-        completeImport(importId);
-    // mongoBatchStream.on("finish", () => {
+                    rowsInserted:
+                        rowCount,
 
-    //     console.log(
-    //         "================================="
-    //     );
-
-    //     console.log(
-    //         "MONGODB INSERTION COMPLETED"
-    //     );
-
-    //     console.log(
-    //         "Total rows:",
-    //         rowCount
-    //     );
-
-    //     console.log(
-    //         "Import ID:",
-    //         importId
-    //     );
-
-    //     if (!res.headersSent) {
-
-    //         return res.status(200).json({
-
-    //             success: true,
-
-    //             message:
-    //                 "CSV imported successfully",
-
-    //             importId,
-
-    //             rowsInserted:
-    //                 rowCount
-
-    //         });
-    //     }
-
-    // });
-
-    mongoBatchStream.on("finish", () => {
-
-    completeImport(importId);
-
-    console.log(
-        "================================="
-    );
-
-    console.log(
-        "MONGODB INSERTION COMPLETED"
-    );
-
-    console.log(
-        "Total rows:",
-        rowCount
-    );
-
-    const progress =
-        getProgress(importId);
-
-    console.log(
-        "Rows/sec:",
-        progress.rowsPerSecond
-    );
-
-    if (!res.headersSent) {
-        return res.status(200).json({
-
-            success: true,
-
-            message:
-                "CSV imported successfully",
-
-            importId,
-
-            rowsInserted:
-                rowCount,
-
-            rowsPerSecond:
-                progress.rowsPerSecond
+                    rowsPerSecond:
+                        progress.rowsPerSecond
+                });
+            }
         });
-    }
-});
 
 
-    mongoBatchStream.on("error", (error) => {
+        mongoBatchStream.on("error", (error) => {
 
-        console.error(
-            "MONGODB STREAM ERROR:",
-            error
-        );
+            console.error(
+                "MONGODB STREAM ERROR:",
+                error
+            );
 
 
-        if (!res.headersSent) {
+            if (!res.headersSent) {
 
-            return res.status(500).json({
+                return res.status(500).json({
 
-                success: false,
+                    success: false,
 
-                message:
-                    "MongoDB insertion failed",
+                    message:
+                        "MongoDB insertion failed",
 
-                error:
-                    error.message
+                    error:
+                        error.message
 
-            });
-        }
+                });
+            }
+
+        });
+
+        console.log("Starting CSV pipeline...");
+
+        file
+            .pipe(csv())
+            .pipe(mappingStream)
+            .pipe(customTransformStream)
+            .pipe(counterStream)
+            .pipe(mongoBatchStream);
 
     });
-
-    console.log("Starting CSV pipeline..." );
-
-    file
-        .pipe(csv())
-        .pipe(mappingStream)
-        .pipe(customTransformStream)
-        .pipe(counterStream)
-        .pipe(mongoBatchStream);
-
-});
 
 
     // =====================================
