@@ -93,11 +93,7 @@ export default function App() {
                 err
             );
 
-            setFieldsError(
-                err.response?.data?.message ||
-                `Failed to load fields for "${collectionName}".`
-            );
-
+            // A new collection does not have fields yet.
             setDestinationFields([]);
         } finally {
             setFieldsLoading(false);
@@ -105,15 +101,23 @@ export default function App() {
     };
 
     // -----------------------------
-    // Collection selection handler
+    // Collection name handler
     // -----------------------------
     const handleCollectionChange = async (e) => {
         const collectionName = e.target.value;
 
         setSelectedCollection(collectionName);
 
-        // Fetch fields belonging to the newly selected collection
-        await loadCollectionFields(collectionName);
+        // If the name matches an existing collection,
+        // load its fields as suggestions.
+        if (collections.includes(collectionName)) {
+            await loadCollectionFields(collectionName);
+        } else {
+            // New collection: no existing fields.
+            setDestinationFields([]);
+            setFieldsError('');
+            setMapping({});
+        }
     };
 
     // -----------------------------
@@ -170,11 +174,11 @@ export default function App() {
                 {/* -------------------------------- */}
                 <section className="collection-section">
                     <div className="collection-header">
-                        <h2>Select Destination Collection</h2>
+                        <h2>Destination Collection</h2>
 
                         <p>
-                            Choose the MongoDB collection where your data
-                            will be imported.
+                            Select an existing MongoDB collection or
+                            enter a new collection name.
                         </p>
                     </div>
 
@@ -187,37 +191,42 @@ export default function App() {
                             {collectionsError}
                         </div>
                     ) : (
-                        <select
-                            className="collection-select"
-                            value={selectedCollection}
-                            onChange={handleCollectionChange}
-                        >
-                            <option value="">
-                                -- Select a collection --
-                            </option>
+                        <>
+                            <input
+                                className="collection-input"
+                                type="text"
+                                list="collections"
+                                value={selectedCollection}
+                                onChange={handleCollectionChange}
+                                placeholder="Select or enter collection name"
+                            />
 
-                            {collections.map((collection) => (
-                                <option
-                                    key={collection}
-                                    value={collection}
-                                >
-                                    {collection}
-                                </option>
-                            ))}
-                        </select>
+                            <datalist id="collections">
+                                {collections.map((collection) => (
+                                    <option
+                                        key={collection}
+                                        value={collection}
+                                    />
+                                ))}
+                            </datalist>
+                        </>
                     )}
 
                     {selectedCollection && (
                         <div className="selected-collection">
                             Destination:{' '}
                             <strong>{selectedCollection}</strong>
+
+                            {!collections.includes(selectedCollection) && (
+                                <span> (New collection)</span>
+                            )}
                         </div>
                     )}
 
                     {/* Collection fields loading */}
                     {fieldsLoading && (
                         <div className="status-banner loading">
-                            🔄 Loading collection fields...
+                            🔄 Loading existing fields as suggestions...
                         </div>
                     )}
 
@@ -272,8 +281,7 @@ export default function App() {
                 {/* -------------------------------- */}
                 {previewRows.length > 0 &&
                     selectedCollection &&
-                    !fieldsLoading &&
-                    destinationFields.length > 0 && (
+                    !fieldsLoading && (
                         <MappingUI
                             headers={headers}
                             destinationFields={destinationFields}
