@@ -12,6 +12,7 @@ const createCustomTransformStream =
     require("../streams/customTransformStream");
 
 const { sendProgress } = require("../websocket/progressServer");
+
 const {
     startImport,
     updateProgress,
@@ -19,8 +20,10 @@ const {
     getProgress
 } = require("../utils/importProgress");
 
+// const counterStream = require('../streams/counterStream')
+
 const uploadCSV = (req, res) => {
- 
+
     console.log("=================================");
     console.log("CSV UPLOAD STARTED");
     console.log("=================================");
@@ -36,7 +39,6 @@ const uploadCSV = (req, res) => {
 
     const importId = `import_${Date.now()}`;
     startImport(importId);
-   
 
     // // Store incoming file chunks temporarily
     // const fileBuffer = new PassThrough();
@@ -47,6 +49,7 @@ const uploadCSV = (req, res) => {
     // =====================================
 
     busboy.on("field", (fieldname, value) => {
+
         console.log("FIELD RECEIVED:");
         console.log("Name:", fieldname);
         console.log("Value:", value);
@@ -70,6 +73,7 @@ const uploadCSV = (req, res) => {
 
 
         if (fieldname === "transformations") {
+
             try {
 
                 transformations = JSON.parse(value);
@@ -96,12 +100,16 @@ const uploadCSV = (req, res) => {
     // =====================================
 
     busboy.on("file", (fieldname, file, info) => {
+
         fileStarted = true;
+
         console.log("FILE RECEIVED");
         console.log("Field name:", fieldname);
         console.log("Filename:", info.filename);
 
+
         if (!mapping) {
+
             console.error(
                 "Mapping has not been received yet."
             );
@@ -128,6 +136,7 @@ const uploadCSV = (req, res) => {
             createCustomTransformStream(
                 transformations
             );
+
 
         let rowCount = 0;
 
@@ -227,6 +236,8 @@ const uploadCSV = (req, res) => {
             );
 
         }
+
+
         callback(null, row);
     }
 
@@ -312,20 +323,15 @@ const uploadCSV = (req, res) => {
         });
 
         console.log("Starting CSV pipeline...");
+
         file
             .pipe(csv())
-            // .pipe(validationStream)
             .pipe(mappingStream)
             .pipe(customTransformStream)
             .pipe(counterStream)
-            .pipe(mongoBatchStream)
-            
+            .pipe(mongoBatchStream);
 
     });
-
-    
-
-    
 
 
     // =====================================
@@ -333,6 +339,7 @@ const uploadCSV = (req, res) => {
     // =====================================
 
     busboy.on("error", (error) => {
+
         console.error(
             "BUSBOY ERROR:",
             error
