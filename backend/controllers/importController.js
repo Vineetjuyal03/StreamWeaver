@@ -1,105 +1,363 @@
 const Busboy = require("busboy");
-const fs = require("fs");
-const path = require("path");
+const csv = require("csv-parser");
+const { Transform } = require("stream");
+
+const createMappingStream =
+    require("../streams/cleanRowStream");
+
+const createMongoBatchStream =
+    require("../streams/mongoBatchStream");
+
+const createCustomTransformStream =
+    require("../streams/customTransformStream");
+
+const { sendProgress } = require("../websocket/progressServer");
+const {
+    startImport,
+    updateProgress,
+    completeImport,
+    getProgress
+} = require("../utils/importProgress");
 
 const uploadCSV = (req, res) => {
-    try {
-        const busboy = Busboy({
-            headers: req.headers
-        });
+ 
+    console.log("=================================");
+    console.log("CSV UPLOAD STARTED");
+    console.log("=================================");
 
-        const uploadDir = path.join(__dirname, "/uploads");
+    const busboy = Busboy({
+        headers: req.headers
+    });
 
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, {
-                recursive: true
-            });
+    let mapping = null;
+    let transformations = [];
+    let fileStream = null;
+    let filename = null;
+
+    const importId = `import_${Date.now()}`;
+    startImport(importId);
+   
+
+    // // Store incoming file chunks temporarily
+    // const fileBuffer = new PassThrough();
+
+
+    // =====================================
+    // FORM DATA
+    // =====================================
+
+    busboy.on("field", (fieldname, value) => {
+        console.log("FIELD RECEIVED:");
+        console.log("Name:", fieldname);
+        console.log("Value:", value);
+
+        if (fieldname === "mapping") {
+
+            try {
+
+                mapping = JSON.parse(value);
+
+                console.log("PARSED MAPPING:", mapping);
+
+            } catch (error) {
+
+                console.error(
+                    "Mapping JSON error:",
+                    error.message
+                );
+            }
         }
 
-        let uploadedFileName = "";
-        let uploadedFilePath = "";
 
-        busboy.on("file", (fieldname, file, info) => {
-            const { filename, mimeType } = info;
+        if (fieldname === "transformations") {
+            try {
 
-            console.log("File received:");
-            console.log("Field:", fieldname);
-            console.log("Filename:", filename);
-            console.log("MIME type:", mimeType);
+                transformations = JSON.parse(value);
 
-            if (!filename.toLowerCase().endsWith(".csv")) {
-                file.resume();
+                console.log(
+                    "PARSED TRANSFORMATIONS:",
+                    transformations
+                );
 
-                return res.status(400).json({
+            } catch (error) {
+
+                console.error(
+                    "Transformation JSON error:",
+                    error.message
+                );
+            }
+        }
+
+    });
+
+
+    // =====================================
+    // FILE
+    // =====================================
+
+    busboy.on("file", (fieldname, file, info) => {
+        fileStarted = true;
+        console.log("FILE RECEIVED");
+        console.log("Field name:", fieldname);
+        console.log("Filename:", info.filename);
+
+        if (!mapping) {
+            console.error(
+                "Mapping has not been received yet."
+            );
+
+            file.resume();
+
+            return;
+        }
+
+
+        console.log("Creating mapping stream...");
+
+        const mappingStream =
+            createMappingStream(mapping);
+
+
+        console.log(
+            "Transformations received:",
+            transformations
+        );
+
+
+        const customTransformStream =
+            createCustomTransformStream(
+                transformations
+            );
+
+        let rowCount = 0;
+
+
+        // const counterStream = new Transform({
+
+        //     objectMode: true,
+
+        //     transform(row, encoding, callback) {
+
+        //         rowCount++;
+
+        //         console.log(
+        //             `Mapped row ${rowCount}:`,
+        //             row
+        //         );
+
+        //         callback(null, row);
+        //     }
+
+        // });
+        // const counterStream = new Transform({
+
+        //     objectMode: true,
+
+        //     transform(row, encoding, callback) {
+        //         rowCount++;
+        //         updateProgress(importId, 1);
+        //         if (rowCount % 1000 === 0) {
+        //             const progress =
+        //             getProgress(importId);
+        //             console.log("Rows processed:", progress.rowsProcessed);
+        //             console.log("Rows/sec:", progress.rowsPerSecond);
+        //             console.log("Sending WebSocket progress:",progress);
+        //             sendProgress(importId,
+        //             {
+        //                 rowsProcessed:progress.rowsProcessed,
+        //                 rowsPerSecond:progress.rowsPerSecond,
+        //                 rowsPerSecond: getProgress(importId).rowsPerSecond,
+        //                 rowsProcessed: rowCount,
+        //                 status:"processing"
+        //             }
+        //         );
+        //         }
+        //         // if (rowCount % 1000 === 0) {
+        //         //     sendProgress(
+        //         //         importId,
+        //         //         {
+        //         //             rowsProcessed: rowCount,
+        //         //             rowsPerSecond: getProgress(importId).rowsPerSecond,
+        //         //             status: "processing"
+        //         //         }
+        //         //     );
+
+        //         // }
+        //         callback(null, row);
+        //     }
+        // });
+
+        const counterStream = new Transform({
+
+    objectMode: true,
+
+    transform(row, encoding, callback) {
+
+        rowCount++;
+
+        updateProgress(
+            importId,
+            1
+        );
+
+
+        if (rowCount % 1000 === 0) {
+
+            const progress =
+                getProgress(importId);
+
+
+            console.log(
+                "Sending progress for row:",
+                rowCount
+            );
+
+
+            sendProgress(
+                importId,
+                {
+                    rowsProcessed:
+                        progress.rowsProcessed,
+
+                    rowsPerSecond:
+                        progress.rowsPerSecond,
+
+                    status: "processing"
+                }
+            );
+
+        }
+        callback(null, row);
+    }
+
+});
+
+        const mongoBatchStream =
+            createMongoBatchStream(importId);
+
+        mongoBatchStream.on("finish", () => {
+            completeImport(importId);
+
+            console.log(
+                "MONGODB INSERTION COMPLETED"
+            );
+
+            console.log(
+                "Total rows:",
+                rowCount
+            );
+
+            const progress = getProgress(importId);
+            sendProgress(importId,
+                {
+                    rowsProcessed:
+                        progress.rowsProcessed,
+
+                    rowsPerSecond:
+                        progress.rowsPerSecond,
+
+                    status:
+                        "completed"
+                }
+            );
+
+            console.log(
+                "Rows/sec:",
+                progress.rowsPerSecond
+            );
+
+            if (!res.headersSent) {
+                return res.status(200).json({
+
+                    success: true,
+
+                    message:
+                        "CSV imported successfully",
+
+                    importId,
+
+                    rowsInserted:
+                        rowCount,
+
+                    rowsPerSecond:
+                        progress.rowsPerSecond
+                });
+            }
+        });
+
+
+        mongoBatchStream.on("error", (error) => {
+
+            console.error(
+                "MONGODB STREAM ERROR:",
+                error
+            );
+
+
+            if (!res.headersSent) {
+
+                return res.status(500).json({
+
                     success: false,
-                    message: "Only CSV files are allowed"
+
+                    message:
+                        "MongoDB insertion failed",
+
+                    error:
+                        error.message
+
                 });
             }
 
-            uploadedFileName = `${Date.now()}-${filename}`;
-
-            uploadedFilePath = path.join(
-                uploadDir,
-                uploadedFileName
-            );
-
-            const writeStream = fs.createWriteStream(
-                uploadedFilePath
-            );
-
-            file.pipe(writeStream);
-
-            file.on("data", (chunk) => {
-                console.log(
-                    "Received chunk:",
-                    chunk.length,
-                    "bytes"
-                );
-            });
-
-            file.on("end", () => {
-                console.log("File stream finished");
-            });
-
-            writeStream.on("finish", () => {
-                console.log("File successfully saved");
-            });
-
-            writeStream.on("error", (error) => {
-                console.error("Write error:", error);
-            });
         });
 
-        busboy.on("finish", () => {
-            console.log("Upload request finished");
+        console.log("Starting CSV pipeline...");
+        file
+            .pipe(csv())
+            // .pipe(validationStream)
+            .pipe(mappingStream)
+            .pipe(customTransformStream)
+            .pipe(counterStream)
+            .pipe(mongoBatchStream)
+            
 
-            return res.status(200).json({
-                success: true,
-                message: "CSV uploaded successfully",
-                fileName: uploadedFileName
-            });
-        });
+    });
 
-        busboy.on("error", (error) => {
-            console.error("Busboy error:", error);
+    
 
-            return res.status(500).json({
+    
+
+
+    // =====================================
+    // BUSBOY ERROR
+    // =====================================
+
+    busboy.on("error", (error) => {
+        console.error(
+            "BUSBOY ERROR:",
+            error
+        );
+
+        if (!res.headersSent) {
+
+            res.status(500).json({
+
                 success: false,
-                message: "CSV upload failed"
+
+                message:
+                    "Upload failed",
+
+                error:
+                    error.message
+
             });
-        });
 
-        req.pipe(busboy);
+        }
 
-    } catch (error) {
-        console.error(error);
-
-        return res.status(500).json({
-            success: false,
-            message: "Something went wrong"
-        });
-    }
+    });
+    req.pipe(busboy);
 };
+
 
 module.exports = {
     uploadCSV

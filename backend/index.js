@@ -1,23 +1,30 @@
 const express = require("express");
+const http = require("http");
+const importRoutes = require("./routes/importRoutes");
+require("dotenv").config();
+const connectDB = require("./config/db");
 const cors = require("cors");
 
-const importRoutes = require("./routes/importRoutes");
+const {
+    initializeWebSocket
+} = require("./websocket/progressServer");
 
 const app = express();
-
 app.use(cors());
 app.use(express.json());
 
+// your existing routes
 app.use("/api/import", importRoutes);
 
-app.get("/", (req, res) => {
-    res.json({
-        message: "StreamWeaver API is running"
-    });
-});
+connectDB();
+// IMPORTANT
+const server = http.createServer(app);
 
-const PORT = 5000;
 
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+// IMPORTANT
+initializeWebSocket(server);
+const PORT = process.env.PORT || 5000;
+
+server.listen(PORT, () => {
+    console.log("Server running on port 5000");
 });
