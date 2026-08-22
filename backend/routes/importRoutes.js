@@ -1,9 +1,10 @@
 const express = require("express");
-const { uploadCSV } = require("../controllers/importController");
+const { uploadCSV, getImportStatus } = require("../controllers/importController");
 
 const router = express.Router();
 
 router.post("/upload", uploadCSV);
+router.get("/:importId",getImportStatus);
 
 
 

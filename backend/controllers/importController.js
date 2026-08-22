@@ -20,68 +20,95 @@ const {
     getProgress
 } = require("../utils/importProgress");
 
-// const counterStream = require('../streams/counterStream')
 
 const uploadCSV = (req, res) => {
-
-    console.log("=================================");
     console.log("CSV UPLOAD STARTED");
-    console.log("=================================");
-
     const busboy = Busboy({
         headers: req.headers
     });
 
     let mapping = null;
     let transformations = [];
-    let fileStream = null;
-    let filename = null;
+    // IMPORTANT
+    // let fileReceived = false;
+
+    // let mappingReceived = false;
+    // let mappingError = false;
 
     const importId = `import_${Date.now()}`;
     startImport(importId);
-
-    // // Store incoming file chunks temporarily
-    // const fileBuffer = new PassThrough();
-
 
     // =====================================
     // FORM DATA
     // =====================================
 
     busboy.on("field", (fieldname, value) => {
-
         console.log("FIELD RECEIVED:");
-        console.log("Name:", fieldname);
-        console.log("Value:", value);
 
         if (fieldname === "mapping") {
-
+            mappingReceived = true;
+            // Check empty mapping
+            if (!value || value.trim() === "") {
+                mappingError = true
+                return res.status(404).json({
+                    success: false,
+                    message: "Mapping is empty",
+                });
+            }
             try {
-
                 mapping = JSON.parse(value);
+                if (
+                    typeof mapping !== "object" ||
+                    mapping === null ||
+                    Array.isArray(mapping)
+                ) {
 
-                console.log("PARSED MAPPING:", mapping);
+                    mappingError = true;
+                    mapping = null;
+                     return res.status(400).json({
+
+                    success: false,
+                    message: "Mapping must be a valid object",
+                });
+                }
+                // Check empty object
+
+                if (
+                    Object.keys(mapping).length === 0
+                ) {
+
+                    mappingError = true;
+                    mapping = null;
+                    console.log("PARSED MAPPING:",mapping);
+                    return res.status(400).json({
+                    success: false,
+                    message: "Mapping cannot be empty",
+                });
+
+                }
+                
 
             } catch (error) {
-
-                console.error(
-                    "Mapping JSON error:",
-                    error.message
-                );
+                mappingError = true;
+                mapping = null;                
+                return res.status(400).json({
+                    // success: false,
+                    message: "Mapping error",
+                });
             }
         }
 
-
         if (fieldname === "transformations") {
-
             try {
-
                 transformations = JSON.parse(value);
-
                 console.log(
                     "PARSED TRANSFORMATIONS:",
                     transformations
                 );
+                // return res.status(201).json({
+                //     success: true,
+                //     message: "PARSED TRANSFORMATIONS:",
+                // });
 
             } catch (error) {
 
@@ -100,16 +127,12 @@ const uploadCSV = (req, res) => {
     // =====================================
 
     busboy.on("file", (fieldname, file, info) => {
-
         fileStarted = true;
-
         console.log("FILE RECEIVED");
         console.log("Field name:", fieldname);
         console.log("Filename:", info.filename);
 
-
         if (!mapping) {
-
             console.error(
                 "Mapping has not been received yet."
             );
@@ -126,11 +149,7 @@ const uploadCSV = (req, res) => {
             createMappingStream(mapping);
 
 
-        console.log(
-            "Transformations received:",
-            transformations
-        );
-
+        console.log("Transformations received:",transformations);
 
         const customTransformStream =
             createCustomTransformStream(
@@ -139,62 +158,6 @@ const uploadCSV = (req, res) => {
 
 
         let rowCount = 0;
-
-
-        // const counterStream = new Transform({
-
-        //     objectMode: true,
-
-        //     transform(row, encoding, callback) {
-
-        //         rowCount++;
-
-        //         console.log(
-        //             `Mapped row ${rowCount}:`,
-        //             row
-        //         );
-
-        //         callback(null, row);
-        //     }
-
-        // });
-        // const counterStream = new Transform({
-
-        //     objectMode: true,
-
-        //     transform(row, encoding, callback) {
-        //         rowCount++;
-        //         updateProgress(importId, 1);
-        //         if (rowCount % 1000 === 0) {
-        //             const progress =
-        //             getProgress(importId);
-        //             console.log("Rows processed:", progress.rowsProcessed);
-        //             console.log("Rows/sec:", progress.rowsPerSecond);
-        //             console.log("Sending WebSocket progress:",progress);
-        //             sendProgress(importId,
-        //             {
-        //                 rowsProcessed:progress.rowsProcessed,
-        //                 rowsPerSecond:progress.rowsPerSecond,
-        //                 rowsPerSecond: getProgress(importId).rowsPerSecond,
-        //                 rowsProcessed: rowCount,
-        //                 status:"processing"
-        //             }
-        //         );
-        //         }
-        //         // if (rowCount % 1000 === 0) {
-        //         //     sendProgress(
-        //         //         importId,
-        //         //         {
-        //         //             rowsProcessed: rowCount,
-        //         //             rowsPerSecond: getProgress(importId).rowsPerSecond,
-        //         //             status: "processing"
-        //         //         }
-        //         //     );
-
-        //         // }
-        //         callback(null, row);
-        //     }
-        // });
 
         const counterStream = new Transform({
 
@@ -211,11 +174,8 @@ const uploadCSV = (req, res) => {
 
 
         if (rowCount % 1000 === 0) {
-
             const progress =
                 getProgress(importId);
-
-
             console.log(
                 "Sending progress for row:",
                 rowCount
@@ -243,6 +203,8 @@ const uploadCSV = (req, res) => {
 
 });
 
+
+
         const mongoBatchStream =
             createMongoBatchStream(importId);
 
@@ -261,14 +223,9 @@ const uploadCSV = (req, res) => {
             const progress = getProgress(importId);
             sendProgress(importId,
                 {
-                    rowsProcessed:
-                        progress.rowsProcessed,
-
-                    rowsPerSecond:
-                        progress.rowsPerSecond,
-
-                    status:
-                        "completed"
+                    rowsProcessed:progress.rowsProcessed,
+                    rowsPerSecond:progress.rowsPerSecond,
+                    status:"completed"
                 }
             );
 
@@ -279,19 +236,12 @@ const uploadCSV = (req, res) => {
 
             if (!res.headersSent) {
                 return res.status(200).json({
-
                     success: true,
-
-                    message:
-                        "CSV imported successfully",
-
+                    message: "CSV imported successfully",
                     importId,
-
-                    rowsInserted:
-                        rowCount,
-
-                    rowsPerSecond:
-                        progress.rowsPerSecond
+                    rowsInserted:rowCount,
+                    rowsPerSecond:progress.rowsPerSecond,
+                    status:"completed"
                 });
             }
         });
@@ -333,7 +283,6 @@ const uploadCSV = (req, res) => {
 
     });
 
-
     // =====================================
     // BUSBOY ERROR
     // =====================================
@@ -350,10 +299,8 @@ const uploadCSV = (req, res) => {
             res.status(500).json({
 
                 success: false,
-
                 message:
                     "Upload failed",
-
                 error:
                     error.message
 
@@ -366,6 +313,96 @@ const uploadCSV = (req, res) => {
 };
 
 
-module.exports = {
-    uploadCSV
+const getImportStatus = (req, res) => {
+
+    try {
+
+        const { importId } = req.params;
+
+        // Validate importId
+        if (!importId) {
+
+            return res.status(400).json({
+
+                success: false,
+
+                message:
+                    "importId is required"
+
+            });
+        }
+
+
+        // Get import progress
+        const progress =
+            getProgress(importId);
+
+
+        // Import not found
+        if (!progress) {
+
+            return res.status(404).json({
+
+                success: false,
+
+                message:
+                    "Import not found",
+
+                importId
+
+            });
+        }
+
+
+        // Return status
+        return res.status(200).json({
+
+            success: true,
+
+            data: {
+
+                importId,
+
+                status:
+                    progress.status,
+
+                rowsProcessed:
+                    progress.rowsProcessed,
+
+                rowsPerSecond:  
+                    progress.rowsPerSecond
+
+            }
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            "GET IMPORT STATUS ERROR:",
+            error
+        );
+
+
+        return res.status(500).json({
+
+            success: false,
+
+            message:
+                "Failed to get import status",
+
+            error:
+                error.message
+
+        });
+
+    }
+
 };
+
+
+
+module.exports = {
+    uploadCSV,
+    getImportStatus
+}
