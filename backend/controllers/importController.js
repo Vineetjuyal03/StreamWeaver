@@ -211,6 +211,7 @@ const uploadCSV = (req, res) => {
         mongoBatchStream.on("finish", () => {
             completeImport(importId);
 
+
             console.log(
                 "MONGODB INSERTION COMPLETED"
             );

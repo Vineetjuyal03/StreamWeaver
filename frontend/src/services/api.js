@@ -5,12 +5,14 @@ const API = axios.create({
 });
 
 export const fetchCollections = async () => {
+    return ["customer"]
     const response = await API.get('/collections');
 
     return response.data.collections;
 };
 
 export const fetchCollectionFields = async (collectionName) => {
+    return ["name","email"]
     const response = await API.get(
         `/collections/${encodeURIComponent(collectionName)}/fields`
     );
