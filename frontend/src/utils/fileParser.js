@@ -1,70 +1,111 @@
+import { JSONParser } from '@streamparser/json-whatwg';
 import Papa from 'papaparse';
 
 /**
- * Parses the first chunk of a local file (CSV or JSON) inside the browser.
+ * Main entry point: Auto-detects file type and processes streams up to maxRows.
  */
-export const parseFilePreview = (file, maxRows = 1000) => {
-  return new Promise((resolve, reject) => {
-    if (!file) {
-      return reject(new Error('No file provided.'));
-    }
+export async function parseFileStream(file, maxRows = 1000) {
+  const fileName = file.name.toLowerCase();
 
-    const fileName = file.name;
-    const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
-    const isCsv = fileName.toLowerCase().endsWith('.csv');
-    const isJson = fileName.toLowerCase().endsWith('.json');
+  if (fileName.endsWith('.json') || file.type === 'application/json') {
+    return await parseJsonStream(file, maxRows);
+  } else if (fileName.endsWith('.csv') || file.type === 'text/csv') {
+    return await parseCsvStream(file, maxRows);
+  } else {
+    throw new Error('Unsupported file format. Please upload a CSV or JSON file.');
+  }
+}
 
-    if (!isCsv && !isJson) {
-      return reject(new Error('Unsupported file type. Please upload a .csv or .json file.'));
-    }
+/**
+ * Helper to calculate size in MB formatted to 2 decimal places.
+ */
+function getFileSizeMB(bytes) {
+  return (bytes / (1024 * 1024)).toFixed(2);
+}
 
-    // Slice only the first 1 MB chunk
-    const CHUNK_SIZE = 1 * 1024 * 1024;
-    const fileSlice = file.slice(0, CHUNK_SIZE);
+/**
+ * Streams up to maxRows from a JSON file and extracts headers for mapping.
+ */
+export async function parseJsonStream(file, maxRows = 1000) {
+  const records = [];
+  const headersSet = new Set();
+  const reader = file.stream().getReader();
+  const parser = new JSONParser({ emitPartialValues: false });
 
-    const reader = new FileReader();
+  parser.onValue = ({ value, stack }) => {
+    if (stack.length === 1 && value && typeof value === 'object') {
+      records.push(value);
+      
+      // Extract top-level object keys so they act as headers in MappingUI
+      Object.keys(value).forEach((key) => headersSet.add(key));
 
-    reader.onload = (e) => {
-      const content = e.target.result;
-
-      if (isCsv) {
-        Papa.parse(content, {
-          header: true,
-          skipEmptyLines: true,
-          preview: maxRows, // Halts parsing at 1,000 rows
-          complete: (results) => {
-            const headers = results.meta.fields || [];
-            const rows = results.data || [];
-            resolve({ headers, rows, fileName, fileSizeMB });
-          },
-          error: (err) => reject(new Error(`CSV Parsing Error: ${err.message}`)),
-        });
-      } else if (isJson) {
-        try {
-          let text = content.trim();
-          if (text.startsWith('[')) {
-            const lastCloseBracket = text.lastIndexOf('}');
-            if (lastCloseBracket !== -1) {
-              text = text.substring(0, lastCloseBracket + 1) + ']';
-            }
-          }
-
-          let parsedData = JSON.parse(text);
-          if (!Array.isArray(parsedData)) {
-            parsedData = [parsedData];
-          }
-
-          const slicedRows = parsedData.slice(0, maxRows);
-          const headers = slicedRows.length > 0 ? Object.keys(slicedRows[0]) : [];
-
-          resolve({ headers, rows: slicedRows, fileName, fileSizeMB });
-        } catch (err) {
-          reject(new Error('Invalid JSON format in the preview slice.'));
-        }
+      if (records.length >= maxRows) {
+        reader.cancel();
       }
-    };
+    }
+  };
 
-    reader.onerror = () => reject(new Error('Failed to read file slice.'));
-    reader.readAsText(fileSlice);
+  try {
+    while (records.length < maxRows) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      parser.write(value);
+    }
+  } catch (err) {
+    // Reader cancellation triggers stream abort, safe to catch and ignore
+  }
+
+  return {
+    fileName: file.name,
+    fileSizeMB: getFileSizeMB(file.size),
+    headers: Array.from(headersSet),
+    rows: records,
+    type: 'json',
+  };
+}
+
+/**
+ * Streams up to maxRows from a CSV file.
+ */
+export function parseCsvStream(file, maxRows = 1000) {
+  return new Promise((resolve, reject) => {
+    const records = [];
+    let headers = [];
+
+    Papa.parse(file, {
+      header: true,
+      worker: true,
+      skipEmptyLines: true,
+      step: function (row, parser) {
+        if (headers.length === 0 && row.meta && row.meta.fields) {
+          headers = row.meta.fields;
+        }
+
+        records.push(row.data);
+
+        if (records.length >= maxRows) {
+          parser.abort();
+          resolve({
+            fileName: file.name,
+            fileSizeMB: getFileSizeMB(file.size),
+            headers: headers,
+            rows: records,
+            type: 'csv',
+          });
+        }
+      },
+      complete: function () {
+        resolve({
+          fileName: file.name,
+          fileSizeMB: getFileSizeMB(file.size),
+          headers: headers,
+          rows: records,
+          type: 'csv',
+        });
+      },
+      error: function (err) {
+        reject(err);
+      },
+    });
   });
-};
+}

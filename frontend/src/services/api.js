@@ -1,12 +1,14 @@
 import axios from 'axios';
 
 const API = axios.create({
-    baseURL: 'http://localhost:5000/api',
+    baseURL: 'http://localhost:5000',
 });
-
+export const test= async()=>{
+    return await API.get('/')
+}
 export const fetchCollections = async () => {
-    return ["customer"]
-    const response = await API.get('/collections');
+    // return ["customer"]
+    const response = await API.get('/db/getCollections');
 
     return response.data.collections;
 };

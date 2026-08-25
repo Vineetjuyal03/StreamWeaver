@@ -9,12 +9,22 @@ const {
     initializeWebSocket
 } = require("./websocket/progressServer");
 
+const connectDB = require("./config/db");
+const importRoutes = require("./routes/importRoutes");
+const dbInfoRoutes= require("./routes/db_info")
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 // your existing routes
 app.use("/api/import", importRoutes);
+app.use("/db",dbInfoRoutes)
+app.get("/", (req, res) => {
+    res.json({
+        success: true,
+        message: "StreamWeaver API is running"
+    });
+});
 
 connectDB();
 // IMPORTANT
