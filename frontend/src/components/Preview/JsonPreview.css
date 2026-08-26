@@ -1,0 +1,46 @@
+.json-preview-wrapper {
+  background-color: #1e1e1e;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #333;
+}
+
+.json-row-container {
+  padding: 12px 16px;
+  box-sizing: border-box;
+  border-bottom: 1px solid #2a2a2a;
+  font-family: 'Fira Code', 'Courier New', monospace;
+}
+
+.json-row-container.even {
+  background-color: #1e1e1e;
+}
+
+.json-row-container.odd {
+  background-color: #252526;
+}
+
+.json-row-header {
+  margin-bottom: 4px;
+}
+
+.json-row-index {
+  color: #6a9955;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.json-code-block {
+  margin: 0;
+  font-size: 13px;
+  color: #d4d4d4;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 110px;
+  overflow-y: auto;
+}
+
+.column-badge.json-badge {
+  background-color: #e34c26;
+  color: #ffffff;
+}

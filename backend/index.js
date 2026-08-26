@@ -3,15 +3,13 @@ const http = require("http");
 const importRoutes = require("./routes/importRoutes");
 require("dotenv").config();
 const connectDB = require("./config/db");
+const dbInfoRoutes= require("./routes/db_info")
 const cors = require("cors");
 
 const {
     initializeWebSocket
 } = require("./websocket/progressServer");
 
-const connectDB = require("./config/db");
-const importRoutes = require("./routes/importRoutes");
-const dbInfoRoutes= require("./routes/db_info")
 const app = express();
 app.use(cors());
 app.use(express.json());

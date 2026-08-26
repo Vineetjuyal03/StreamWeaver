@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import Header from './components/Header/Header';
 import CollectionSelector from './components/CollectionSelector/CollectionSelector';
 import DropZone from './components/DropZone/DropZone';
-import PreviewTable from './components/PreviewTable/PreviewTable';
+import Preview from './components/Preview/Preview';
 import MappingUI from './components/MappingUI/MappingUI';
-import { parseCsvStream } from './utils/fileParser';
+import { parseFileStream } from './utils/fileParser';
 import {
     fetchCollections,
     fetchCollectionFields,
@@ -99,10 +99,13 @@ export default function App() {
         setHeaders([]);
 
         try {
-            const result = await parseCsvStream(selectedFile, 1000);
+            // Parses up to 1000 rows/objects using streams and auto-detects CSV or JSON
+            const result = await parseFileStream(selectedFile, 1000);
+
             setFileInfo({
                 name: result.fileName,
                 sizeMB: result.fileSizeMB,
+                type: result.type,
                 rawFile: selectedFile,
             });
             setHeaders(result.headers);
@@ -145,7 +148,7 @@ export default function App() {
 
                 {loading && (
                     <div className="status-banner loading">
-                        ⚡ Parsing first 1,000 rows in memory...
+                        ⚡ Parsing first 1,000 items in memory...
                     </div>
                 )}
 
@@ -156,7 +159,8 @@ export default function App() {
                 )}
 
                 {previewRows.length > 0 && (
-                    <PreviewTable
+                    <Preview
+                        fileType={fileInfo?.type}
                         headers={headers}
                         rows={previewRows}
                         fileName={fileInfo?.name}
