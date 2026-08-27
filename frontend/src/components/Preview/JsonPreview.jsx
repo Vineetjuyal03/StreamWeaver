@@ -5,7 +5,11 @@ import './JsonPreview.css';
 const ROW_HEIGHT = 160;
 const VIEWPORT_HEIGHT = 400;
 
-function VirtualJsonRow({ index, style, rows }) {
+/**
+ * Row component. In react-window v2, data is passed via rowProps
+ * and spread directly into this component's props (no `data` wrapper).
+ */
+const JsonRow = ({ index, style, rows }) => {
   const item = rows[index];
 
   return (
@@ -21,18 +25,17 @@ function VirtualJsonRow({ index, style, rows }) {
       </pre>
     </div>
   );
-}
+};
 
 export default function JsonPreview({
   rows = [],
   fileName,
   fileSizeMB,
 }) {
-  if (!rows.length) return null;
+  if (!rows || rows.length === 0) return null;
 
   return (
     <div className="preview-card">
-      {/* Header */}
       <div className="preview-header">
         <div>
           <h3 className="preview-title">JSON Data Preview</h3>
@@ -45,18 +48,14 @@ export default function JsonPreview({
         <div className="column-badge json-badge">JSON Format</div>
       </div>
 
-      {/* Virtualized List Container */}
       <div className="json-preview-wrapper">
         <List
-          rowComponent={VirtualJsonRow}
+          rowComponent={JsonRow}
           rowCount={rows.length}
           rowHeight={ROW_HEIGHT}
           rowProps={{ rows }}
+          style={{ height: VIEWPORT_HEIGHT }}
           overscanCount={3}
-          style={{
-            height: VIEWPORT_HEIGHT,
-            width: '100%',
-          }}
         />
       </div>
     </div>

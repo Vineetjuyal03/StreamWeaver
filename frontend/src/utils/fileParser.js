@@ -27,43 +27,49 @@ function getFileSizeMB(bytes) {
  * Streams up to maxRows from a JSON file and extracts headers for mapping.
  */
 export async function parseJsonStream(file, maxRows = 1000) {
-  const records = [];
-  const headersSet = new Set();
   const reader = file.stream().getReader();
-  const parser = new JSONParser({ emitPartialValues: false });
-
-  parser.onValue = ({ value, stack }) => {
-    if (stack.length === 1 && value && typeof value === 'object') {
-      records.push(value);
-      
-      // Extract top-level object keys so they act as headers in MappingUI
-      Object.keys(value).forEach((key) => headersSet.add(key));
-
-      if (records.length >= maxRows) {
-        reader.cancel();
-      }
-    }
-  };
+  const decoder = new TextDecoder('utf-8');
+  let buffer = '';
+  let records = [];
+  const headersSet = new Set();
 
   try {
     while (records.length < maxRows) {
       const { done, value } = await reader.read();
       if (done) break;
-      parser.write(value);
+
+      buffer += decoder.decode(value, { stream: true });
+
+      // Attempt standard JSON parse if buffer forms a valid segment
+      try {
+        const parsed = JSON.parse(buffer);
+        const values = Array.isArray(parsed) ? parsed : Object.values(parsed);
+        
+        records = values.slice(0, maxRows);
+        records.forEach((item) => {
+          if (typeof item === 'object' && item !== null) {
+            Object.keys(item).forEach((k) => headersSet.add(k));
+          }
+        });
+        
+        reader.cancel();
+        break;
+      } catch (e) {
+        // Continue streaming chunks until JSON slice becomes valid
+      }
     }
   } catch (err) {
-    // Reader cancellation triggers stream abort, safe to catch and ignore
+    // Handle cancellation
   }
 
   return {
     fileName: file.name,
-    fileSizeMB: getFileSizeMB(file.size),
+    fileSizeMB: (file.size / (1024 * 1024)).toFixed(2),
     headers: Array.from(headersSet),
     rows: records,
     type: 'json',
   };
 }
-
 /**
  * Streams up to maxRows from a CSV file.
  */

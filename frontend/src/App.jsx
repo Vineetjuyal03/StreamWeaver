@@ -101,7 +101,7 @@ export default function App() {
         try {
             // Parses up to 1000 rows/objects using streams and auto-detects CSV or JSON
             const result = await parseFileStream(selectedFile, 1000);
-
+            console.log(result)
             setFileInfo({
                 name: result.fileName,
                 sizeMB: result.fileSizeMB,
