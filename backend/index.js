@@ -3,6 +3,7 @@ const http = require("http");
 const importRoutes = require("./routes/importRoutes");
 require("dotenv").config();
 const connectDB = require("./config/db");
+const dbInfoRoutes= require("./routes/db_info")
 const cors = require("cors");
 
 const {
@@ -18,6 +19,13 @@ app.use(express.json());
 // your existing routes
 app.use("/api/import", importRoutes);
 app.use( "/api",mappingRoutes);
+app.use("/db",dbInfoRoutes)
+app.get("/", (req, res) => {
+    res.json({
+        success: true,
+        message: "StreamWeaver API is running"
+    });
+});
 
 connectDB();
 // IMPORTANT
