@@ -9,12 +9,15 @@ const {
     initializeWebSocket
 } = require("./websocket/progressServer");
 
+const mappingRoutes = require("./routes/mappingRoutes");
+
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 // your existing routes
 app.use("/api/import", importRoutes);
+app.use( "/api",mappingRoutes);
 
 connectDB();
 // IMPORTANT

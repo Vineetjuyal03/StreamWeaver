@@ -147,8 +147,6 @@ const uploadCSV = (req, res) => {
 
         const mappingStream =
             createMappingStream(mapping);
-
-
         console.log("Transformations received:",transformations);
 
         const customTransformStream =
@@ -176,12 +174,7 @@ const uploadCSV = (req, res) => {
         if (rowCount % 1000 === 0) {
             const progress =
                 getProgress(importId);
-            console.log(
-                "Sending progress for row:",
-                rowCount
-            );
-
-
+            console.log("Sending progress for row:",rowCount);
             sendProgress(
                 importId,
                 {
@@ -190,37 +183,24 @@ const uploadCSV = (req, res) => {
 
                     rowsPerSecond:
                         progress.rowsPerSecond,
-
                     status: "processing"
                 }
             );
 
         }
-
-
         callback(null, row);
     }
 
 });
-
-
 
         const mongoBatchStream =
             createMongoBatchStream(importId);
 
         mongoBatchStream.on("finish", () => {
             completeImport(importId);
+            console.log("MONGODB INSERTION COMPLETED");
 
-
-            console.log(
-                "MONGODB INSERTION COMPLETED"
-            );
-
-            console.log(
-                "Total rows:",
-                rowCount
-            );
-
+            console.log("Total rows:",rowCount);
             const progress = getProgress(importId);
             sendProgress(importId,
                 {

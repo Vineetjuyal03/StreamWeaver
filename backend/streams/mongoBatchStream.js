@@ -5,55 +5,31 @@ const ImportedData =
 
 const BATCH_SIZE = 2500;
 
-
 const createMongoBatchStream = (importId) => {
 
     let batch = [];
-
-
     return new Writable({
 
         objectMode: true,
 
-
         async write(row, encoding, callback) {
 
             try {
-
-                console.log(
-                    "Mongo stream received row:",
-                    row
-                );
-
+                console.log("Mongo stream received row:",row);
 
                 batch.push({
-
                     insertOne: {
-
                         document: {
-
                             importId,
-
                             data: row
-
                         }
-
                     }
-
                 });
 
-
-                console.log(
-                    "Current batch size:",
-                    batch.length
-                );
-
-
+                console.log("Current batch size:",batch.length);
                 if (batch.length >= BATCH_SIZE) {
 
-                    console.log(
-                        "1000 rows reached. Calling bulkWrite..."
-                    );
+                    console.log("1000 rows reached. Calling bulkWrite...");
 
 
                     const result =
@@ -63,25 +39,12 @@ const createMongoBatchStream = (importId) => {
                                 ordered: false
                             }
                         );
-
-
-                    console.log(
-                        "bulkWrite result:",
-                        result
-                    );
-
-
-                    console.log(
-                        `Inserted ${batch.length} rows`
-                    );
-
-
+                    console.log("bulkWrite result:", result);
+                    console.log( `Inserted ${batch.length} rows`);
                     batch = [];
                 }
 
-
                 callback();
-
 
             } catch (error) {
 
@@ -98,18 +61,7 @@ const createMongoBatchStream = (importId) => {
         async final(callback) {
 
             try {
-
-                console.log(
-                    "Mongo stream FINAL called"
-                );
-
-
-                console.log(
-                    "Remaining batch:",
-                    batch.length
-                );
-
-
+                console.log("Mongo stream FINAL called");
                 if (batch.length > 0) {
 
                     console.log(
