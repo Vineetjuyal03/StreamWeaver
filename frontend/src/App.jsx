@@ -4,11 +4,12 @@ import CollectionSelector from './components/CollectionSelector/CollectionSelect
 import DropZone from './components/DropZone/DropZone';
 import Preview from './components/Preview/Preview';
 import MappingUI from './components/MappingUI/MappingUI';
+import UploadButton from './components/UploadButton/UploadButton';
 import { parseFileStream } from './utils/fileParser';
 import {
     fetchCollections,
     fetchCollectionFields,
-    test
+    uploadCSV
 } from './services/api';
 import './App.css';
 
@@ -33,6 +34,32 @@ export default function App() {
 
     // Mapping state
     const [mapping, setMapping] = useState({});
+
+    const [uploadStatus, setUploadStatus] = useState(null); // { state: 'uploading' | 'success' | 'error', message, rowsInserted }
+
+    const handleUpload = async () => {
+        if (!fileInfo?.rawFile) {
+            setUploadStatus({ state: 'error', message: 'No file selected.' });
+            return;
+        }
+        if (!mapping || Object.keys(mapping).length === 0) {
+            setUploadStatus({ state: 'error', message: 'Please map at least one column first.' });
+            return;
+        }
+
+        setUploadStatus({ state: 'uploading' });
+
+        try {
+            const result = await uploadCSV(fileInfo.rawFile, mapping, []); // transformations wired up later
+            setUploadStatus({
+                state: 'success',
+                message: result.message,
+                rowsInserted: result.rowsInserted,
+            });
+        } catch (err) {
+            setUploadStatus({ state: 'error', message: err.message || 'Upload failed.' });
+        }
+    };
 
     // Fetch collections on app load
     useEffect(() => {
@@ -174,6 +201,13 @@ export default function App() {
                         destinationFields={destinationFields}
                         mapping={mapping}
                         onMappingChange={handleMappingChange}
+                    />
+                )}
+                {previewRows.length > 0 && Object.keys(mapping).length > 0 && (
+                    <UploadButton
+                        onUpload={handleUpload}
+                        disabled={uploadStatus?.state === 'uploading'}
+                        status={uploadStatus}
                     />
                 )}
             </main>
