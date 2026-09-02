@@ -9,7 +9,8 @@ import { parseFileStream } from './utils/fileParser';
 import {
     fetchCollections,
     fetchCollectionFields,
-    uploadCSV
+    uploadCSV,
+    uploadJSON
 } from './services/api';
 import './App.css';
 
@@ -38,28 +39,29 @@ export default function App() {
     const [uploadStatus, setUploadStatus] = useState(null); // { state: 'uploading' | 'success' | 'error', message, rowsInserted }
 
     const handleUpload = async () => {
-        if (!fileInfo?.rawFile) {
-            setUploadStatus({ state: 'error', message: 'No file selected.' });
-            return;
-        }
-        if (!mapping || Object.keys(mapping).length === 0) {
-            setUploadStatus({ state: 'error', message: 'Please map at least one column first.' });
-            return;
-        }
+    if (!fileInfo?.rawFile) {
+        setUploadStatus({ state: 'error', message: 'No file selected.' });
+        return;
+    }
+    if (!mapping || Object.keys(mapping).length === 0) {
+        setUploadStatus({ state: 'error', message: 'Please map at least one column first.' });
+        return;
+    }
 
-        setUploadStatus({ state: 'uploading' });
+    setUploadStatus({ state: 'uploading' });
 
-        try {
-            const result = await uploadCSV(fileInfo.rawFile, mapping, []); // transformations wired up later
-            setUploadStatus({
-                state: 'success',
-                message: result.message,
-                rowsInserted: result.rowsInserted,
-            });
-        } catch (err) {
-            setUploadStatus({ state: 'error', message: err.message || 'Upload failed.' });
-        }
-    };
+    try {
+        const uploadFn = fileInfo.type === 'json' ? uploadJSON : uploadCSV;
+        const result = await uploadFn(fileInfo.rawFile, mapping, []);
+        setUploadStatus({
+            state: 'success',
+            message: result.message,
+            rowsInserted: result.rowsInserted,
+        });
+    } catch (err) {
+        setUploadStatus({ state: 'error', message: err.message || 'Upload failed.' });
+    }
+};
 
     // Fetch collections on app load
     useEffect(() => {

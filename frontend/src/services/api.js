@@ -9,7 +9,7 @@ export const test= async()=>{
 export const fetchCollections = async () => {
     // return ["customer"]
     const response = await API.get('/db/getCollections');
-
+    console.log(response.data)
     return response.data.collections;
 };
 
@@ -22,20 +22,30 @@ export const fetchCollectionFields = async (collectionName) => {
     return response.data.fields;
 };
 
-export const uploadCSV = async (file, mapping, transformations = []) => {
+const uploadFile = async (file, mapping, transformations = [], fileType) => {
     const formData = new FormData();
+    // order matters: fields must be appended before the file (Busboy processes
+    // multipart parts sequentially, and the file handler checks for these
+    // fields the instant the file part starts arriving)
     formData.append('mapping', JSON.stringify(mapping));
     formData.append('transformations', JSON.stringify(transformations));
+    formData.append('fileType', fileType);
     formData.append('file', file);
 
     try {
         const response = await axios.post(
             'http://localhost:5000/api/import/upload',
             formData
-            // no timeout set — axios defaults to 0 (wait indefinitely)
+            // no timeout — large files can legitimately take minutes
         );
         return response.data;
     } catch (err) {
         throw new Error(err.response?.data?.message || err.message || 'Upload failed');
     }
 };
+
+export const uploadCSV = (file, mapping, transformations = []) =>
+    uploadFile(file, mapping, transformations, 'csv');
+
+export const uploadJSON = (file, mapping, transformations = []) =>
+    uploadFile(file, mapping, transformations, 'json');
