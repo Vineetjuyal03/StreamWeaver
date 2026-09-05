@@ -13,7 +13,7 @@
     "@streamparser/json-whatwg": "^0.0.26",
     "axios": "^1.19.0",
     "express": "^5.2.1",
-    "papaparse": "^5.5.4",
+    "papaparse": "^5.7.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-window": "^2.3.0"
