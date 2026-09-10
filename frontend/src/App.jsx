@@ -5,6 +5,8 @@ import DropZone from './components/DropZone/DropZone';
 import Preview from './components/Preview/Preview';
 import MappingUI from './components/MappingUI/MappingUI';
 import UploadButton from './components/UploadButton/UploadButton';
+import TransformationUI from './components/TransformationUI/TransformationUI'
+import ProgressBar from './components/ProgressBar/ProgressBar';
 import { parseFileStream } from './utils/fileParser';
 import {
     fetchCollections,
@@ -37,32 +39,73 @@ export default function App() {
     const [mapping, setMapping] = useState({});
 
     const [uploadStatus, setUploadStatus] = useState(null); // { state: 'uploading' | 'success' | 'error', message, rowsInserted }
+    const [transformations, setTransformations] = useState([]);
+    const [importProgress, setImportProgress] = useState(null);
+    const wsRef = React.useRef(null);
 
-    const handleUpload = async () => {
-    if (!fileInfo?.rawFile) {
-        setUploadStatus({ state: 'error', message: 'No file selected.' });
-        return;
-    }
-    if (!mapping || Object.keys(mapping).length === 0) {
-        setUploadStatus({ state: 'error', message: 'Please map at least one column first.' });
-        return;
-    }
+    const handleUpload = () => {
+        if (!fileInfo?.rawFile) {
+            setUploadStatus({ state: 'error', message: 'No file selected.' });
+            return;
+        }
+        if (!mapping || Object.keys(mapping).length === 0) {
+            setUploadStatus({ state: 'error', message: 'Please map at least one column first.' });
+            return;
+        }
 
-    setUploadStatus({ state: 'uploading' });
+        const importId = `import_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        setImportProgress(null);
+        setUploadStatus({ state: 'uploading' });
 
-    try {
-        const uploadFn = fileInfo.type === 'json' ? uploadJSON : uploadCSV;
-        const result = await uploadFn(fileInfo.rawFile, mapping, []);
-        setUploadStatus({
-            state: 'success',
-            message: result.message,
-            rowsInserted: result.rowsInserted,
+        const ws = new WebSocket('ws://localhost:5000');
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+            console.log('WS OPEN — subscribing with importId:', importId);
+            ws.send(JSON.stringify({ type: 'subscribe', importId }));
+
+            const uploadFn = fileInfo.type === 'json' ? uploadJSON : uploadCSV;
+
+            uploadFn(fileInfo.rawFile, mapping, transformations, importId)
+                .then((result) => {
+                    setUploadStatus({ state: 'success', message: result.message, rowsInserted: result.rowsInserted });
+                    ws.close();
+                })
+                .catch((err) => {
+                    setUploadStatus({ state: 'error', message: err.message || 'Upload failed.' });
+                    ws.close();
+                });
+        };
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'import-progress') {
+                setImportProgress({
+                    rowsProcessed: data.rowsProcessed,
+                    rowsPerSecond: data.rowsPerSecond,
+                    status: data.status,
+                });
+            }
+        };
+
+        ws.onerror = (err) => console.error('WebSocket error:', err);
+    };
+
+    const handleTransformationChange = (column, code) => {
+        setTransformations((prev) => {
+            if (code === null) {
+                // toggle off — remove this column's transformation entirely
+                return prev.filter((t) => t.column !== column);
+            }
+            const existingIndex = prev.findIndex((t) => t.column === column);
+            if (existingIndex === -1) {
+                return [...prev, { column, code }];
+            }
+            const updated = [...prev];
+            updated[existingIndex] = { column, code };
+            return updated;
         });
-    } catch (err) {
-        setUploadStatus({ state: 'error', message: err.message || 'Upload failed.' });
-    }
-};
-
+    };
     // Fetch collections on app load
     useEffect(() => {
         const loadCollections = async () => {
@@ -206,11 +249,21 @@ export default function App() {
                     />
                 )}
                 {previewRows.length > 0 && Object.keys(mapping).length > 0 && (
+                    <TransformationUI
+                        mapping={mapping}
+                        transformations={transformations}
+                        onTransformationChange={handleTransformationChange}
+                    />
+                )}
+                {previewRows.length > 0 && Object.keys(mapping).length > 0 && (
                     <UploadButton
                         onUpload={handleUpload}
                         disabled={uploadStatus?.state === 'uploading'}
                         status={uploadStatus}
                     />
+                )}
+                {uploadStatus?.state === 'uploading' && (
+                    <ProgressBar progress={importProgress} />
                 )}
             </main>
         </div>

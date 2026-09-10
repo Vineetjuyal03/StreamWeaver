@@ -24,16 +24,12 @@ const uploadCSV = (req, res) => {
         headers: req.headers
     });
 
-    let mapping = null;
+        let mapping = null;
     let mappingReceived = false;
     let mappingError = false;
     let transformations = [];
     let fileStarted = false;
-
-    const importId = `import_${Date.now()}`;
-    startImport(importId);
-
-    console.log(`[${requestTag}] importId=${importId}`);
+    let importId = null;
 
     // =====================================
     // FORM DATA
@@ -114,6 +110,10 @@ const uploadCSV = (req, res) => {
                 console.error(`[${requestTag}] Transformation JSON error:`, error.message);
             }
         }
+        if (fieldname === "importId") {
+            importId = value;
+            console.log(`[${requestTag}] Received importId from client: ${importId}`);
+        }
     });
 
 
@@ -123,8 +123,13 @@ const uploadCSV = (req, res) => {
 
     busboy.on("file", (fieldname, file, info) => {
         fileStarted = true;
-        console.log(`[${requestTag}] FILE RECEIVED: ${info.filename}`);
 
+        if (!importId) {
+            importId = `import_${Date.now()}`;
+        }
+        startImport(importId);
+
+        console.log(`[${requestTag}] FILE RECEIVED: ${info.filename}, importId=${importId}`);
         if (mappingError) {
             // A mapping error already sent a response above — just drain and exit.
             file.resume();
