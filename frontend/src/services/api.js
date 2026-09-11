@@ -32,12 +32,11 @@ const uploadFile = async (file, mapping, transformations = [], fileType, importI
     formData.append('collection', collection);
     formData.append('mapping', JSON.stringify(mapping));
     formData.append('transformations', JSON.stringify(transformations));
-    formData.append('fileType', fileType);
     formData.append('importId', importId);
     formData.append('file', file);
 
     try {
-        const response = await axios.post('http://localhost:5000/api/import/upload', formData);
+        const response = await axios.post(`http://localhost:5000/api/import/upload/${fileType}`, formData);
         return response.data;
     } catch (err) {
         const { message } = handleApiError(err);
@@ -50,3 +49,4 @@ export const uploadCSV = (file, mapping, transformations, importId, collection) 
 
 export const uploadJSON = (file, mapping, transformations, importId, collection) =>
     uploadFile(file, mapping, transformations, 'json', importId, collection);
+//api.js
