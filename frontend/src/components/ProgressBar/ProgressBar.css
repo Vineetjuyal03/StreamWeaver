@@ -33,7 +33,9 @@
     animation: none;
     background-color: #166534;
 }
-
+.progress-info.error {
+    color: #991b1b;
+}
 @keyframes progress-pulse {
     0% { transform: translateX(-100%); }
     100% { transform: translateX(400%); }

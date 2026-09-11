@@ -1,10 +1,18 @@
-import React from 'react';
-import './ProgressBar.css';
-
 export default function ProgressBar({ progress }) {
     if (!progress) return null;
 
     const { rowsProcessed, rowsPerSecond, status } = progress;
+
+    if (status === 'connection-lost') {
+        return (
+            <div className="progress-container">
+                <div className="progress-info error">
+                    <span>⚠️ Lost connection to the server</span>
+                    <span>{rowsProcessed?.toLocaleString() ?? 0} rows were processed before the drop</span>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="progress-container">

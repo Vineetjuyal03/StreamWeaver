@@ -42,23 +42,18 @@ const getCollectionFields = async (req, res) => {
 
         const collection = mongoose.connection.db.collection(collectionName);
 
+        // Sample a handful of documents rather than scanning the whole collection —
+        // fine for a schemaless "what fields exist" preview.
         const sampleDocs = await collection.find({}).limit(50).toArray();
 
         if (sampleDocs.length === 0) {
-            return res.json({ success: true, fields: [] });
+            return res.json({ success: true, fields: [] }); // empty/new collection — no fields yet
         }
 
         const fieldSet = new Set();
         sampleDocs.forEach((doc) => {
-            // Older documents wrap actual CSV fields under `data`;
-            // read from there when present, otherwise fall back to
-            // the document's own top-level keys (flat-insert shape).
-            const source = (doc.data && typeof doc.data === "object")
-                ? doc.data
-                : doc;
-
-            Object.keys(source).forEach((key) => {
-                if (key !== "_id" && key !== "_importId" && key !== "importId") {
+            Object.keys(doc).forEach((key) => {
+                if (key !== "_id" && key !== "_importId") {
                     fieldSet.add(key);
                 }
             });

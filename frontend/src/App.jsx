@@ -88,7 +88,26 @@ export default function App() {
             }
         };
 
-        ws.onerror = (err) => console.error('WebSocket error:', err);
+        ws.onclose = (event) => {
+            console.log('WS CLOSED:', { code: event.code, reason: event.reason, wasClean: event.wasClean });
+
+            // A clean close (code 1000) after we ourselves called ws.close() on success/failure
+            // is expected and not an error — only surface a problem for an unexpected drop.
+            if (!event.wasClean) {
+                setImportProgress((prev) => ({
+                    ...(prev || {}),
+                    status: 'connection-lost',
+                }));
+            }
+        };
+
+        ws.onerror = (err) => {
+            console.error('WebSocket error:', err);
+            setImportProgress((prev) => ({
+                ...(prev || {}),
+                status: 'connection-lost',
+            }));
+        };
     };
 
     const handleTransformationChange = (column, code) => {
