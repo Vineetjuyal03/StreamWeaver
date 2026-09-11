@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { handleApiError } from '../utils/handleApiError';
 
 const API = axios.create({
     baseURL: 'http://localhost:5000',
@@ -7,23 +8,28 @@ export const test= async()=>{
     return await API.get('/')
 }
 export const fetchCollections = async () => {
-    // return ["customer"]
-    const response = await API.get('/db/getCollections');
-    console.log(response.data)
-    return response.data.collections;
+    try {
+        const response = await axios.get('http://localhost:5000/db/collections');
+        return response.data.collections;
+    } catch (err) {
+        const { message } = handleApiError(err);
+        throw new Error(message);
+    }
 };
 
 export const fetchCollectionFields = async (collectionName) => {
-    return ["name","email"]
-    const response = await API.get(
-        `/collections/${encodeURIComponent(collectionName)}/fields`
-    );
-
-    return response.data.fields;
+    try {
+        const response = await API.get(`/db/collections/${encodeURIComponent(collectionName)}/fields`);
+        return response.data.fields;
+    } catch (err) {
+        const { message } = handleApiError(err);
+        throw new Error(message);
+    }
 };
 
-const uploadFile = async (file, mapping, transformations = [], fileType, importId) => {
+const uploadFile = async (file, mapping, transformations = [], fileType, importId, collection) => {
     const formData = new FormData();
+    formData.append('collection', collection);
     formData.append('mapping', JSON.stringify(mapping));
     formData.append('transformations', JSON.stringify(transformations));
     formData.append('fileType', fileType);
@@ -34,12 +40,13 @@ const uploadFile = async (file, mapping, transformations = [], fileType, importI
         const response = await axios.post('http://localhost:5000/api/import/upload', formData);
         return response.data;
     } catch (err) {
-        throw new Error(err.response?.data?.message || err.message || 'Upload failed');
+        const { message } = handleApiError(err);
+        throw new Error(message);
     }
 };
 
-export const uploadCSV = (file, mapping, transformations, importId) =>
-    uploadFile(file, mapping, transformations, 'csv', importId);
+export const uploadCSV = (file, mapping, transformations, importId, collection) =>
+    uploadFile(file, mapping, transformations, 'csv', importId, collection);
 
-export const uploadJSON = (file, mapping, transformations, importId) =>
-    uploadFile(file, mapping, transformations, 'json', importId);
+export const uploadJSON = (file, mapping, transformations, importId, collection) =>
+    uploadFile(file, mapping, transformations, 'json', importId, collection);

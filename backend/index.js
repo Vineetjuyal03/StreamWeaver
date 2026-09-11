@@ -5,7 +5,7 @@ require("dotenv").config();
 const connectDB = require("./config/db");
 const dbInfoRoutes= require("./routes/db_info")
 const cors = require("cors");
-
+const errorHandler = require("./middleware/errorHandler");
 const {
     initializeWebSocket
 } = require("./websocket/progressServer");
@@ -23,7 +23,16 @@ app.get("/", (req, res) => {
         message: "StreamWeaver API is running"
     });
 });
+app.use(errorHandler);
+process.on("unhandledRejection", (reason) => {
+    console.error("UNHANDLED REJECTION:", reason);
+});
 
+process.on("uncaughtException", (error) => {
+    console.error("UNCAUGHT EXCEPTION:", error);
+    // In production you'd typically exit and let a process manager restart cleanly;
+    // for now, just logging so nothing dies silently during testing.
+});
 connectDB();
 // IMPORTANT
 const server = http.createServer(app);

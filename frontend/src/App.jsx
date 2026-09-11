@@ -66,7 +66,7 @@ export default function App() {
 
             const uploadFn = fileInfo.type === 'json' ? uploadJSON : uploadCSV;
 
-            uploadFn(fileInfo.rawFile, mapping, transformations, importId)
+            uploadFn(fileInfo.rawFile, mapping, transformations, importId, selectedCollection)
                 .then((result) => {
                     setUploadStatus({ state: 'success', message: result.message, rowsInserted: result.rowsInserted });
                     ws.close();

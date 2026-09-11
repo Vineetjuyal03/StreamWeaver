@@ -1,7 +1,8 @@
 const Busboy = require("busboy");
 const csv = require("csv-parser");
 const { Transform } = require("stream");
-
+const AppError = require("../utils/AppError");
+const asyncHandler = require("../utils/asyncHandler");
 const createMappingStream = require("../streams/cleanRowStream");
 const createMongoBatchStream = require("../streams/mongoBatchStream");
 const createCustomTransformStream = require("../streams/customTransformStream");
@@ -30,14 +31,26 @@ const uploadCSV = (req, res) => {
     let transformations = [];
     let fileStarted = false;
     let importId = null;
-
+    let collectionName = null;
     // =====================================
     // FORM DATA
     // =====================================
 
     busboy.on("field", (fieldname, value) => {
         console.log(`[${requestTag}] FIELD RECEIVED: ${fieldname}`);
-
+        if (fieldname === "collection") {
+            if (!value || value.trim() === "") {
+                console.error(`[${requestTag}] Collection name is empty`);
+                if (!res.headersSent) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Collection name is required",
+                    });
+                }
+                return;
+            }
+            collectionName = value;
+        }
         if (fieldname === "mapping") {
             mappingReceived = true;
 
@@ -135,6 +148,17 @@ const uploadCSV = (req, res) => {
             file.resume();
             return;
         }
+        if (!collectionName) {
+            console.error(`[${requestTag}] Collection has not been received yet.`);
+            file.resume();
+            if (!res.headersSent) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Target collection must be sent before the file",
+                });
+            }
+            return;
+        }
 
         if (!mapping) {
             console.error(`[${requestTag}] Mapping has not been received yet.`);
@@ -152,7 +176,7 @@ const uploadCSV = (req, res) => {
 
         const mappingStream = createMappingStream(mapping);
         const customTransformStream = createCustomTransformStream(transformations);
-        const mongoBatchStream = createMongoBatchStream(importId);
+        const mongoBatchStream = createMongoBatchStream(importId, collectionName);
 
         let rowCount = 0;
 
@@ -185,9 +209,7 @@ const uploadCSV = (req, res) => {
             if (!res.headersSent) {
                 res.status(500).json({
                     success: false,
-                    message: `Pipeline failed at ${stageName}`,
-                    error: error.message,
-                    rowsProcessedBeforeFailure: rowCount,
+                    message: `Pipeline failed at ${stageName}: ${error.message}`,
                 });
             }
         };
@@ -261,46 +283,29 @@ const uploadCSV = (req, res) => {
 };
 
 
-const getImportStatus = (req, res) => {
-    try {
-        const { importId } = req.params;
+const getImportStatus = asyncHandler(async (req, res) => {
+    const { importId } = req.params;
 
-        if (!importId) {
-            return res.status(400).json({
-                success: false,
-                message: "importId is required"
-            });
-        }
-
-        const progress = getProgress(importId);
-
-        if (!progress) {
-            return res.status(404).json({
-                success: false,
-                message: "Import not found",
-                importId
-            });
-        }
-
-        return res.status(200).json({
-            success: true,
-            data: {
-                importId,
-                status: progress.status,
-                rowsProcessed: progress.rowsProcessed,
-                rowsPerSecond: progress.rowsPerSecond
-            }
-        });
-
-    } catch (error) {
-        console.error("GET IMPORT STATUS ERROR:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Failed to get import status",
-            error: error.message
-        });
+    if (!importId) {
+        throw new AppError("importId is required", 400);
     }
-};
+
+    const progress = getProgress(importId);
+
+    if (!progress) {
+        throw new AppError("Import not found", 404);
+    }
+
+    res.status(200).json({
+        success: true,
+        data: {
+            importId,
+            status: progress.status,
+            rowsProcessed: progress.rowsProcessed,
+            rowsPerSecond: progress.rowsPerSecond,
+        },
+    });
+});
 
 
 module.exports = {

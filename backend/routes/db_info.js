@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
-const { getCollections } = require("../controllers/db_info");
+const { getCollections,getCollectionFields} = require("../controllers/db_info");
 
 // GET /collections
-router.get("/getCollections", getCollections);
-
+router.get("/collections", getCollections);
+router.get("/collections/:collectionName/fields", getCollectionFields);
 module.exports = router;
